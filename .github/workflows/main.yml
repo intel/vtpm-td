@@ -1,0 +1,65 @@
+on:
+    push:
+      paths-ignore:
+        - "**.md"
+    pull_request:
+      paths-ignore:
+        - "**.md"
+  
+name: Build binary
+  
+env:
+  AS: nasm
+  RUST_TOOLCHAIN: nightly-2022-11-15
+  TOOLCHAIN_PROFILE: minimal
+  
+jobs:
+    system_compile:
+      name: Compile the vtpmtd.bin file
+      runs-on: ubuntu-20.04
+      timeout-minutes: 30
+  
+      steps:
+        - name: Checkout vTPM-Td Sources
+          uses: actions/checkout@v2
+          with:
+            submodules: recursive
+        
+        - name: Install LLVM and Clang
+          uses: KyleMayes/install-llvm-action@v1
+          with:
+            version: "10.0"
+            directory: ${{ runner.temp }}/llvm
+
+        - name: install NASM
+          uses: ilammy/setup-nasm@v1
+        
+        - name: Install tools for tpm-ref build
+          run:  sudo apt-get install autoconf-archive pkg-config build-essential automake gcc libssl-dev
+ 
+        - name: Install toolchain
+          uses: actions-rs/toolchain@v1
+          with:
+            profile: ${{ env.TOOLCHAIN_PROFILE }}
+            toolchain: ${{ env.RUST_TOOLCHAIN }}
+            override: true
+            components: rust-src
+  
+        - name: Run cargo install cargo-xbuild
+          uses: actions-rs/cargo@v1
+          with:
+            command: install
+            args: cargo-xbuild
+  
+        - name: Preparation Work
+          run: bash sh_script/pre-build.sh
+  
+        - name: Run cargo check
+          run: |
+            cargo check
+  
+        - name: Build vTPM-TD
+          env:
+            CC: clang
+            AR: llvm-ar
+          run: bash sh_script/build.sh
