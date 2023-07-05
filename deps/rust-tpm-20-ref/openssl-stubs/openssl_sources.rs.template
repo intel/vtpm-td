@@ -1,0 +1,6 @@
+
+
+pub const OPENSSL_CRYPTO_SRCS: &[&str] = &[
+    // GENERATE_START
+    // GENERATE_END
+];
