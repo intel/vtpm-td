@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+
+default-members = [
+    "src/vtpmtd",
+]
+members = [
+    "src/global",
+    "src/crypto",
+    "src/protocol",
+    "src/spdm",
+    "src/tdtunnel",
+    "src/tpm",
+    "src/vtpmtd",
+]
+
+exclude = [
+    "deps/td-shim",
+    "deps/rust-spdm",
+    "deps/ring",
+    "deps/webpki",
+]
+
+# the profile used for `cargo build`
+[profile.dev]
+panic = "abort" # disable stack unwinding on panic
+
+# the profile used for `cargo build --release`
+[profile.release]
+panic = "abort"    # disable stack unwinding on panic
+lto = true         # Link-time optimization
+
+[patch.crates-io]
+ring = { path = "deps/rust-spdm/external/ring" }
+webpki = { path = "deps/rust-spdm/external/webpki" }

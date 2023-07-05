@@ -1,0 +1,12 @@
+[submodule "deps/td-shim"]
+	path = deps/td-shim
+	url = https://github.com/confidential-containers/td-shim
+[submodule "deps/rust-spdm"]
+	path = deps/rust-spdm
+	url = https://github.com/intel/rust-spdm
+[submodule "deps/rust-tpm-20-ref/ms-tpm-20-ref"]
+	path = deps/rust-tpm-20-ref/ms-tpm-20-ref
+	url = https://github.com/microsoft/ms-tpm-20-ref.git
+[submodule "deps/rust-tpm-20-ref/openssl"]
+	path = deps/rust-tpm-20-ref/openssl
+	url = https://github.com/openssl/openssl.git

@@ -1,0 +1,54 @@
+[package]
+name = "vtpmtd"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+bitfield = "0.13.2"
+bitflags = "1.2.1"
+bitmap-allocator = { git = "https://github.com/rcore-os/bitmap-allocator", rev = "03bd9909" }
+conquer-once = { version = "0.3.2", default-features = false }
+scroll = { version = "0.10", default-features = false, features = ["derive"]}
+spin = "0.9.2"
+x86 = "0.47.0"
+x86_64 = "0.14.9"
+zerocopy = "0.6.1"
+anyhow = { version = "1.0.68", default-features = false }
+sha2 = { version = "0.10.6", default-features = false, features = ["force-soft"]}
+paste = "1.0"
+bytes = { version="1", default-features=false }
+der = {version = "0.5.1", features = ["oid", "alloc", "derive"]}
+
+linked_list_allocator = "0.10.2"
+log = "0.4.13"
+td-uefi-pi =  { path = "../../deps/td-shim/td-uefi-pi" }
+tdx-tdcall = { path = "../../deps/td-shim/tdx-tdcall" }
+td-logger =  { path = "../../deps/td-shim/td-logger" }
+td-exception = { path = "../../deps/td-shim/td-exception", features = ["tdx"]}
+td-layout = { path = "../../deps/td-shim/td-layout" }
+td-loader = { path = "../../deps/td-shim/td-loader"}
+td-paging = { path = "../../deps/td-shim/td-paging" }
+td-payload = { path = "../../deps/td-shim/td-payload", features = ["tdx"] }
+td-shim = { path = "../../deps/td-shim/td-shim", default-featuers = false }
+cc-measurement = { path = "../../deps/td-shim/cc-measurement"}
+spdmlib = { path = "../../deps/rust-spdm/spdmlib", default-features = false, features = ["spdm-ring", "downcast", "mut-auth"]}
+codec = { path = "../../deps/rust-spdm/codec" }
+
+byteorder = { version = "1.0", default-features = false }
+ring = { version = "0.16.20" }
+
+global = { path = "../global" }
+crypto = { path = "../crypto" }
+protocol = { path = "../protocol" }
+spdm = { path = "../spdm" }
+tdtunnel = { path = "../tdtunnel" }
+tpm = { path = "../tpm" }
+
+[dependencies.lazy_static]
+version = "1.0"
+features = ["spin_no_std"]
+
+[features]
+sha256 = []
+sha384 = []
+sha512 = []

@@ -1,0 +1,14 @@
+diff --git a/TPMCmd/tpm/src/support/Manufacture.c b/TPMCmd/tpm/src/support/Manufacture.c
+index 1c6f736..d95879a 100644
+--- a/TPMCmd/tpm/src/support/Manufacture.c
++++ b/TPMCmd/tpm/src/support/Manufacture.c
+@@ -82,7 +82,8 @@ TPM_Manufacture(
+     s_DAPendingOnNV = FALSE;
+ 
+     // initialize NV
+-    NvManufacture();
++    if (_plat__NVNeedsManufacture())
++        NvManufacture();
+ 
+     // Clear the magic value in the DRBG state
+     go.drbgState.magic = 0;
