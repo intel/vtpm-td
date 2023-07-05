@@ -730,8 +730,10 @@ name = "tpm"
 version = "0.1.0"
 dependencies = [
  "global",
+ "lazy_static",
  "log",
  "rust-tpm-20-ref",
+ "spin 0.9.8",
 ]
 
 [[package]]

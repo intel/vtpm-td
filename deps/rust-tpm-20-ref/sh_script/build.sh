@@ -17,6 +17,8 @@ function clean() {
     pushd tpm
     make clean
     popd
+
+    cargo clean
 }
 
 function build() {
