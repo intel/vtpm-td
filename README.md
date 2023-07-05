@@ -22,7 +22,7 @@ rust-vtpm-td is a Trust Domain (TD) based vTPM solution, which can support vTPM 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-* Install toolchain and components required by MigTD:
+* Install toolchain and components required by vtpmtd:
 ```
 rustup toolchain install nightly-2022-11-15
 rustup component add --toolchain nightly-2022-11-15 rust-src
