@@ -1,0 +1,18 @@
+[vtpm.config]
+vtpm_td_script = "launch_vtpm_td.sh"
+user_td_script = "launch_user_td.sh"
+vtpm_td_bios_img = "../../run-vtpm-td/vtpmtd.bin"
+user_td_bios_img = "../../run-user-td/OVMF.fd"
+kernel_img = "/home/env/vtpm/vmlinuz-jammy"
+guest_img = "/home/env/vtpm/td-guest-ubuntu-22.04-test.qcow2"
+vtpm_test_img = "/home/env/vtpm/vtpm.img"
+vtpm_test_img_mount_path = "/media/vtpm"
+default_user_id = "aabbccdd-2012-2022-1234-123456789123"
+default_startup_cmds = [
+  "fs0:",
+]
+default_wait_tools_run_seconds = 20
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-v -r fEsp"
