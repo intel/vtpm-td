@@ -1,0 +1,55 @@
+name: vTPM Integration Test on TDX server
+on:
+    push:
+      paths-ignore:
+        - "**.md"
+    pull_request:
+      paths-ignore:
+        - "**.md"
+
+env:
+  AS: nasm
+  RUST_TOOLCHAIN: nightly-2022-11-15
+  TOOLCHAIN_PROFILE: minimal
+
+jobs:
+  system_compile:
+    name: Run vTPM Integration Test
+    runs-on: [self-hosted, vtpm]
+
+    steps:
+      - name: Checkout sources - vTpm
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      
+      - name: Checkout sources - TDVF
+        run: |
+          rm -rf ../vtpm-tdvf
+          git clone --recursive --single-branch -b TDVF https://github.com/tianocore/edk2-staging ../vtpm-tdvf
+      
+      - name: Build vTPM td
+        run: |
+          rm -rf ../run-vtpm-td
+          mkdir ../run-vtpm-td
+          git submodule update --init --recursive
+          bash sh_script/pre-build.sh
+          bash sh_script/build.sh
+          cp target/x86_64-unknown-none/release/vtpmtd.bin ../run-vtpm-td
+      
+      - name: Build TDVF
+        run: |
+          pushd ../vtpm-tdvf
+          make -C BaseTools
+          source edksetup.sh
+          rm -rf ../run-user-td
+          mkdir ../run-user-td
+          build -p OvmfPkg/OvmfPkgX64.dsc -t GCC5 -a X64 -D TPM2_ENABLE=TRUE -D VTPM_ENABLE=TRUE -b RELEASE
+          cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF.fd ../run-user-td/
+          popd
+
+      - name: Run test
+        run: |
+          pushd sh_script
+          python -m pytest -k "not stress"
+          popd
