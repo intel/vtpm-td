@@ -39,7 +39,7 @@ use tpm::{start_tpm, terminate_tpm};
 use crate::vtpm::eventlog::{event_log_size, get_event_log};
 
 fn make_config_info() -> common::SpdmConfigInfo {
-    let config_info = common::SpdmConfigInfo {
+    common::SpdmConfigInfo {
         spdm_version: [
             SpdmVersion::SpdmVersion10,
             SpdmVersion::SpdmVersion11,
@@ -73,9 +73,7 @@ fn make_config_info() -> common::SpdmConfigInfo {
         heartbeat_period: config::HEARTBEAT_PERIOD,
         secure_spdm_version: [DMTF_SECURE_SPDM_VERSION_10, DMTF_SECURE_SPDM_VERSION_11],
         ..Default::default()
-    };
-
-    config_info
+    }
 }
 
 fn make_provision_info() -> Option<common::SpdmProvisionInfo> {
@@ -106,11 +104,13 @@ fn make_provision_info() -> Option<common::SpdmProvisionInfo> {
     }
     let cert = cert.unwrap();
 
-    let mut cert_data: SpdmCertChainData = SpdmCertChainData::default();
-    cert_data.data_size = cert.len() as u16;
+    let mut cert_data = SpdmCertChainData {
+        data_size: cert.len() as u16,
+        ..Default::default()
+    };
     cert_data.data[..cert_data.data_size as usize].copy_from_slice(cert.as_ref());
 
-    log::info!("Cert_data size: {:?}\n", cert_data.data_size);
+    // log::info!("Cert_data size: {:?}\n", cert_data.data_size);
 
     let provision_info = common::SpdmProvisionInfo {
         my_cert_chain_data: [Some(cert_data), None, None, None, None, None, None, None],
@@ -185,7 +185,7 @@ impl SpdmConnection {
             provision_info.unwrap(),
         );
 
-        'main_loop: loop {
+        loop {
             let mut do_reset_context: bool = true;
             let mut do_shutdown_tpm = false;
             let mut do_startup_tpm = false;
@@ -194,34 +194,26 @@ impl SpdmConnection {
             let mut current_session_state: SpdmSessionState =
                 SpdmSessionState::SpdmSessionNotStarted;
 
-            'inner_loop: loop {
-                let res = context.process_message(ST1, &[]);
-
-                if res.is_err() {
-                    log::error!("Unexpected result of context.process_message.\n");
-                    break;
-                }
-
-                let spdm_result = res.unwrap();
-                if !spdm_result {
+            let res = context.process_message(ST1, &[]);
+            if let Ok(res) = res {
+                if res {
+                    // SPDM message handled correctly
+                    // Check the SPDM status
+                    let sessions_status = context.common.get_session_status();
+                    // Currently there is only one session can be established in a ResponderContext
+                    // So the returned sessions_status shall have only one working session.
+                    if sessions_status.is_empty() {
+                        log::error!("There shall be at least one session returned.");
+                    } else {
+                        (sess_id, current_session_state) = sessions_status[0];
+                        do_reset_context = false;
+                    }
+                } else {
                     // Received unknown spdm command
                     log::error!("Received unknown SPDM command\n");
-                    break;
                 }
-
-                // SPDM message handled correctly
-                // Check the SPDM status
-                let sessions_status = context.common.get_session_status();
-                // Currently there is only one session can be established in a ResponderContext
-                // So the returned sessions_status shall have only one working session.
-                if sessions_status.len() == 0 {
-                    log::error!("There shall be at least one session returned.");
-                    break;
-                }
-
-                (sess_id, current_session_state) = sessions_status[0];
-                do_reset_context = false;
-                break;
+            } else {
+                log::error!("Unexpected result of context.process_message.\n");
             }
 
             if !do_reset_context {
@@ -320,7 +312,7 @@ impl SpdmConnection {
             let operation = GLOBAL_SPDM_DATA.lock().operation();
             if operation.is_ok() && operation.unwrap() == TdVtpmOperation::Destroy {
                 log::info!("Destroy event received. Quit the main loop.\n");
-                break 'main_loop;
+                break;
             }
         }
     }
