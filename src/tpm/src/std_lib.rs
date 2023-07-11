@@ -74,3 +74,17 @@ pub unsafe extern "C" fn __fw_free(ptr: *mut c_void) {
         alloc::alloc::dealloc(ptr as *mut u8, Layout::from_size_align_unchecked(*size, 1))
     }
 }
+
+#[no_mangle]
+/// # Safety
+pub unsafe extern "C" fn __fw_realloc(ptr: *mut c_void, new_size: usize) -> *mut c_void {
+    if let Some(size) = MALLOC_TABLE.lock().get(&(ptr as usize)) {
+        return alloc::alloc::realloc(
+            ptr as *mut u8,
+            Layout::from_size_align_unchecked(*size, 1),
+            new_size,
+        ) as *mut c_void;
+    } else {
+        return null_mut();
+    }
+}
