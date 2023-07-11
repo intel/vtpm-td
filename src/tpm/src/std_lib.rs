@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#![cfg_attr(not(test), no_std)]
 #![cfg_attr(test, allow(unused_imports))]
-#![feature(alloc_error_handler)]
-#![feature(naked_functions)]
 use alloc::collections::BTreeMap;
 use core::alloc::Layout;
 #[allow(unused, non_snake_case, non_upper_case_globals, non_camel_case_types)]
@@ -16,7 +13,10 @@ use spin::Mutex;
 extern crate alloc;
 
 #[no_mangle]
-pub extern "C" fn __fw_debug_msg(msg: *const u8, len: usize) {
+/// # Safety
+///
+/// This function is unsafe because of the parameter of msg
+pub unsafe extern "C" fn __fw_debug_msg(msg: *const u8, len: usize) {
     let msg = unsafe {
         let r = core::slice::from_raw_parts(msg, len);
         core::str::from_utf8_unchecked(r)
@@ -25,7 +25,10 @@ pub extern "C" fn __fw_debug_msg(msg: *const u8, len: usize) {
 }
 
 #[no_mangle]
-pub extern "C" fn __fw_debug_buffer(buffer: *const u8, len: usize) {
+/// # Safety
+///
+/// This function is unsafe because of the parameter of buffer
+pub unsafe extern "C" fn __fw_debug_buffer(buffer: *const u8, len: usize) {
     let buf = unsafe { core::slice::from_raw_parts(buffer, len) };
     log::info!("buffer {:x?}\n", buf);
 }
@@ -53,6 +56,9 @@ lazy_static! {
 }
 
 #[no_mangle]
+/// # Safety
+///
+/// This function is unsafe
 pub unsafe extern "C" fn __fw_malloc(size: usize) -> *mut c_void {
     let addr = alloc::alloc::alloc(Layout::from_size_align_unchecked(size, 1)) as *mut c_void;
     MALLOC_TABLE.lock().insert(addr as usize, size);
@@ -60,6 +66,9 @@ pub unsafe extern "C" fn __fw_malloc(size: usize) -> *mut c_void {
 }
 
 #[no_mangle]
+/// # Safety
+///
+/// This function is unsafe because of the parameter of ptr
 pub unsafe extern "C" fn __fw_free(ptr: *mut c_void) {
     if let Some(size) = MALLOC_TABLE.lock().get(&(ptr as usize)) {
         alloc::alloc::dealloc(ptr as *mut u8, Layout::from_size_align_unchecked(*size, 1))

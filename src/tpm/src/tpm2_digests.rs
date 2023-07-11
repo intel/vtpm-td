@@ -98,7 +98,7 @@ impl Tpm2Digests {
             return Err(VtpmError::InvalidParameter);
         }
 
-        self.digests.push(digest.clone());
+        self.digests.push(*digest);
         self.total_size += digest.total_size;
         self.digests_count += 1;
 

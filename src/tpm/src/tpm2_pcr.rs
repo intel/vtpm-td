@@ -51,7 +51,9 @@ pub fn tpm2_pcr_extend(digests: &Tpm2Digests, pcr_index: u32) -> VtpmResult {
     }
 
     let cmd_header = Tpm2CommandHeader::new(TPM_ST_SESSIONS, tpm_cmd_size, TPM_CC_PCR_EXTEND);
-    let cmd_header_bytes: [u8; TPM2_COMMAND_HEADER_SIZE] = cmd_header.into();
+
+    let mut cmd_header_bytes: [u8; TPM2_COMMAND_HEADER_SIZE] = [0; TPM2_COMMAND_HEADER_SIZE];
+    let _ = cmd_header.to_bytes(&mut cmd_header_bytes);
 
     // TPM2_PCR_EXTEND Command layout
     // CommandHeader      <-- 10
@@ -81,8 +83,8 @@ pub fn tpm2_pcr_extend(digests: &Tpm2Digests, pcr_index: u32) -> VtpmResult {
     let _ = execute_command(&tpm_cmd[..tpm_cmd_size as usize], &mut tpm_rsp, 0);
     let mut buf: [u8; TPM2_COMMAND_HEADER_SIZE] = [0; TPM2_COMMAND_HEADER_SIZE];
     buf.copy_from_slice(&tpm_rsp[..TPM2_RESPONSE_HEADER_SIZE]);
-    let rsp = Tpm2ResponseHeader::try_from(buf);
-    if rsp.is_err() {
+    let rsp = Tpm2ResponseHeader::from_bytes(&buf);
+    if rsp.is_none() {
         log::error!("Invalid Tpm2ResponseHeader!\n");
         log::error!("  {:02x?}\n", &buf);
         return Err(VtpmError::TpmLibError);
