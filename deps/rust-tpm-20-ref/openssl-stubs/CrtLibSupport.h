@@ -39,10 +39,12 @@
 #define EINVAL       22               /* Invalid argument */
 #define EAFNOSUPPORT 47               /* Address family not supported by protocol family */
 #define INT_MAX      0x7FFFFFFF       /* Maximum (signed) int value */
+#define INT_MIN     (-__INT_MAX__  -1)
 #define LONG_MAX     0X7FFFFFFFL      /* max value for a long */
 #define LONG_MIN     (-LONG_MAX-1)    /* min value for a long */
 #define ULONG_MAX    0xFFFFFFFF       /* Maximum unsigned long value */
 #define CHAR_BIT     8                /* Number of bits in a char */
+#define UINT_MAX   (__INT_MAX__  *2U +1U)
 
 //
 // Address families.
@@ -98,6 +100,11 @@ struct tm {
 struct timeval {
   long tv_sec;      /* time value, in seconds */
   long tv_usec;     /* time value, in microseconds */
+};
+
+struct timezone {
+    int tz_minuteswest;		/* Minutes west of GMT.  */
+    int tz_dsttime;		/* Nonzero if DST is ever in effect.  */
 };
 
 struct sockaddr {
@@ -200,6 +207,9 @@ void *memmove(void *dest, const void *src, size_t n);
 void *memchr(const void *, int, size_t);
 
 int atoi(const char *s);
+
+int gettimeofday ( struct timeval * tv , struct timezone * tz );
+
 
 #define offsetof(TYPE, Field) ((UINTN) &(((TYPE *)0)->Field))
 
