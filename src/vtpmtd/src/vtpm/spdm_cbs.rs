@@ -28,7 +28,7 @@ fn spdm_secure_app_message_handler(
     auxiliary_app_data: &[u8],
 ) -> SpdmResult<([u8; MAX_SPDM_MSG_SIZE], usize)> {
     assert!(GLOBAL_SPDM_DATA.lock().valid);
-    let tpm_cmd = &app_buffer[..];
+    let tpm_cmd = app_buffer;
     let tpm_cmd_size = app_buffer.len();
 
     let mut tpm_rsp: [u8; MAX_SPDM_MSG_SIZE] = [0; MAX_SPDM_MSG_SIZE];
