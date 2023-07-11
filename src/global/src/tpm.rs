@@ -12,6 +12,12 @@ pub struct GlobalTpmData {
     nv_mem: [u8; TPM2_NV_SIZE],
 }
 
+impl Default for GlobalTpmData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlobalTpmData {
     pub fn new() -> GlobalTpmData {
         Self {

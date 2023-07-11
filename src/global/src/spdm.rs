@@ -15,6 +15,12 @@ pub struct GlobalSpdmData {
     pcks8_size: usize,
 }
 
+impl Default for GlobalSpdmData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlobalSpdmData {
     pub fn new() -> GlobalSpdmData {
         Self {
