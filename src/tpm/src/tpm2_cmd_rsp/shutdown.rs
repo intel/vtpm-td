@@ -7,7 +7,6 @@ use super::{
     TPM_RC_SUCCESS, TPM_SHUTDOWN_CMD,
 };
 use crate::execute_command;
-use core::convert::TryFrom;
 use global::{VtpmError, VtpmResult, VTPM_MAX_BUFFER_SIZE};
 
 pub fn tpm2_shutdown() -> VtpmResult {
@@ -16,8 +15,8 @@ pub fn tpm2_shutdown() -> VtpmResult {
     let _ = execute_command(&TPM_SHUTDOWN_CMD, &mut tpm_rsp, 0);
     let mut buf: [u8; TPM2_COMMAND_HEADER_SIZE] = [0; TPM2_COMMAND_HEADER_SIZE];
     buf.copy_from_slice(&tpm_rsp[..TPM2_RESPONSE_HEADER_SIZE]);
-    let rsp = Tpm2ResponseHeader::try_from(buf);
-    if rsp.is_err() {
+    let rsp = Tpm2ResponseHeader::from_bytes(&buf);
+    if rsp.is_none() {
         log::error!("Invalid Tpm2ResponseHeader!\n");
         log::error!("  {:02x?}\n", &buf);
         return Err(VtpmError::TpmLibError);

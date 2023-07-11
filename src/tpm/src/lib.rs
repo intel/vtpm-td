@@ -37,13 +37,13 @@ pub fn execute_command(request: &[u8], response: &mut [u8], _vtpm_id: u128) -> u
 
     // log::info!("tpm cmd: {:02x?}\n", request);
 
-    let tpm_cmd = Tpm2CommandHeader::try_from(buf);
-    if tpm_cmd.is_err() {
+    let tpm_cmd = Tpm2CommandHeader::from_bytes(&buf);
+    if let Some(tpm_cmd) = tpm_cmd {
+        GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = Some(tpm_cmd.command_code);
+    } else {
         log::error!("Invalid Tpm2CommandHeader!\n");
         log::error!("  {:02x?}\n", &buf);
         GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = None;
-    } else {
-        GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = Some(tpm_cmd.unwrap().command_code);
     }
 
     unsafe {
@@ -57,13 +57,13 @@ pub fn execute_command(request: &[u8], response: &mut [u8], _vtpm_id: u128) -> u
     assert_eq!(response_ptr, response.as_mut_ptr());
 
     buf.copy_from_slice(&response[..TPM2_RESPONSE_HEADER_SIZE]);
-    let tpm_rsp = Tpm2ResponseHeader::try_from(buf);
-    if tpm_rsp.is_err() {
+    let tpm_rsp = Tpm2ResponseHeader::from_bytes(&buf);
+    if let Some(tpm_rsp) = tpm_rsp {
+        GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = Some(tpm_rsp.response_code);
+    } else {
         log::error!("Invalid Tpm2ResponseHeader!\n");
         log::error!("  {:02x?}\n", &buf);
         GLOBAL_TPM_DATA.lock().last_tpm_rsp_code = None;
-    } else {
-        GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = Some(tpm_rsp.unwrap().response_code);
     }
 
     // log::info!("tpm rsp: {:02x?}\n", &response[..response_size as usize]);
