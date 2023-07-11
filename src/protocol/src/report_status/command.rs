@@ -6,7 +6,7 @@
 
 use super::{COMMAND_REPORT_STATUS, DEFAULT_VERSION};
 /// This file follow *Trust Domain Extension (TDX) Virtual TPM Design Guide*
-/// 5.1.8	vTPM TD SendCommunication
+/// 5.1.8 vTPM TD SendCommunication
 ///
 use byteorder::{ByteOrder, LittleEndian};
 use global::VtpmResult;
