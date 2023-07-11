@@ -96,9 +96,110 @@ BEGIN {
         die "OpenSSL Configure failed!\n";
 
     system(
-        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/opensslconf.h.in > conf-include/openssl/opensslconf.h"
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/opensslv.h.in > conf-include/openssl/opensslv.h"
     )== 0 ||
-        die "Failed to generate opensslconf.h!\n";
+        die "Failed to generate opensslv.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/crypto.h.in > conf-include/openssl/crypto.h"
+    )== 0 ||
+        die "Failed to generate crypto.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/safestack.h.in > conf-include/openssl/safestack.h"
+    )== 0 ||
+        die "Failed to generate safestack.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/bio.h.in > conf-include/openssl/bio.h"
+    )== 0 ||
+        die "Failed to generate bio.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/asn1.h.in > conf-include/openssl/asn1.h"
+    )== 0 ||
+        die "Failed to generate asn1.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/asn1t.h.in > conf-include/openssl/asn1t.h"
+    )== 0 ||
+        die "Failed to generate asn1t.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/cmp.h.in > conf-include/openssl/cmp.h"
+    )== 0 ||
+        die "Failed to generate cmp.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/cms.h.in > conf-include/openssl/cms.h"
+    )== 0 ||
+        die "Failed to generate cms.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/conf.h.in > conf-include/openssl/conf.h"
+    )== 0 ||
+        die "Failed to generate conf.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/crmf.h.in > conf-include/openssl/crmf.h"
+    )== 0 ||
+        die "Failed to generate crmf.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/ct.h.in > conf-include/openssl/ct.h"
+    )== 0 ||
+        die "Failed to generate ct.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/err.h.in > conf-include/openssl/err.h"
+    )== 0 ||
+        die "Failed to generate err.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/ess.h.in > conf-include/openssl/ess.h"
+    )== 0 ||
+        die "Failed to generate ess.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/fipskey.h.in > conf-include/openssl/fipskey.h"
+    )== 0 ||
+        die "Failed to generate fipskey.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/lhash.h.in > conf-include/openssl/lhash.h"
+    )== 0 ||
+        die "Failed to generate lhash.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/ocsp.h.in > conf-include/openssl/ocsp.h"
+    )== 0 ||
+        die "Failed to generate ocsp.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/pkcs7.h.in > conf-include/openssl/pkcs7.h"
+    )== 0 ||
+        die "Failed to generate pkcs7.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/pkcs12.h.in > conf-include/openssl/pkcs12.h"
+    )== 0 ||
+        die "Failed to generate pkcs12.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/srp.h.in > conf-include/openssl/srp.h"
+    )== 0 ||
+        die "Failed to generate srp.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/ssl.h.in > conf-include/openssl/ssl.h"
+    )== 0 ||
+        die "Failed to generate ssl.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/ui.h.in > conf-include/openssl/ui.h"
+    )== 0 ||
+        die "Failed to generate ui.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/x509_vfy.h.in > conf-include/openssl/x509_vfy.h"
+    )== 0 ||
+        die "Failed to generate x509_vfy.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/x509.h.in > conf-include/openssl/x509.h"
+    )== 0 ||
+        die "Failed to generate x509.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/x509v3.h.in > conf-include/openssl/x509v3.h"
+    )== 0 ||
+        die "Failed to generate x509v3.h!\n";
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/crypto/bn_conf.h.in > conf-include/crypto/bn_conf.h"
+    ) == 0 ||
+        die "Failed to generate bn_conf.h!\n";
+
+    system(
+        "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/openssl/configuration.h.in > conf-include/openssl/configuration.h"
+    )== 0 ||
+        die "Failed to generate configuration.h!\n";
     system(
         "perl -I. -Mconfigdata ../openssl/util/dofile.pl ../openssl/include/crypto/dso_conf.h.in > conf-include/crypto/dso_conf.h"
     ) == 0 ||
