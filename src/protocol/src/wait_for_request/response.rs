@@ -86,7 +86,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> AsMut<[u8]> for Packet<T> {
     }
 }
 
-pub fn get_inner<'a>(buf: &'a [u8]) -> &'a [u8] {
+pub fn get_inner(buf: &'_ [u8]) -> &'_ [u8] {
     &buf[field::DATA]
 }
 

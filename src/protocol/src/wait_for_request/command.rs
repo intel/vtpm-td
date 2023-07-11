@@ -6,7 +6,7 @@
 
 use super::{COMMAND_WAIT_FOR_REQUEST, DEFAULT_VERSION};
 /// This file follow *Trust Domain Extension (TDX) Virtual TPM Design Guide*
-/// 5.1.7	vTPM TD WaitForCommunication
+/// 5.1.7 vTPM TD WaitForCommunication
 ///
 use byteorder::{ByteOrder, LittleEndian};
 use global::VtpmResult;
