@@ -99,7 +99,7 @@ impl TdTunnel {
         // log::info!("\n");
         free(cmd_buffer);
         free(rsp_buffer);
-        return Ok(len);
+        Ok(len)
     }
 
     /// send report_status
@@ -123,7 +123,7 @@ impl TdTunnel {
             vtpm_id,
             operation, // communicate
             status,
-            &buffer[..],
+            buffer,
             &mut cmd_buffer[service_header_len..],
         )?;
         let nlen = service::command::build_command_header_and_size(
