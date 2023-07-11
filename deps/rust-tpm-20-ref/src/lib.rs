@@ -9,6 +9,9 @@ extern crate alloc;
 use core::arch::asm;
 #[naked]
 #[no_mangle]
+/// # Safety
+///
+/// This function is unsafe
 pub unsafe extern "C" fn ___chkstk_ms() {
     asm!(
         "push   %rcx",
