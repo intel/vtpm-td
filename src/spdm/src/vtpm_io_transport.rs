@@ -36,9 +36,9 @@ impl SpdmDeviceIo for VtpmIoTransport {
             self.tunnel
                 .report_status(buffer, self.vtpm_id, TdVtpmOperation::Communicate as u8, 0);
         if res.is_err() {
-            return Err(SPDM_STATUS_SEND_FAIL);
+            Err(SPDM_STATUS_SEND_FAIL)
         } else {
-            return Ok(());
+            Ok(())
         }
     }
 
