@@ -69,10 +69,11 @@ pub fn generate_ecdsa_keypairs() -> Option<Document> {
     let pkcs8_bytes =
         EcdsaKeyPair::generate_pkcs8(&signature::ECDSA_P384_SHA384_ASN1_SIGNING, &rand)
             .map_err(|_| ResolveError::GenerateKey);
-    if pkcs8_bytes.is_err() {
-        return None;
+
+    if let Ok(pkcs8_bytes) = pkcs8_bytes {
+        Some(pkcs8_bytes)
     } else {
-        Some(pkcs8_bytes.unwrap())
+        None
     }
 }
 
@@ -224,7 +225,7 @@ pub fn verify_peer_cert(cert_chain: &[u8], td_report_buf: &mut [u8]) -> SpdmResu
         return Err(SPDM_STATUS_INVALID_CERT);
     }
 
-    let td_report = parse_extensions(&extensions.unwrap());
+    let td_report = parse_extensions(extensions.unwrap());
     if td_report.is_none() {
         return Err(SPDM_STATUS_INVALID_CERT);
     }
