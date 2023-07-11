@@ -3,12 +3,12 @@
 
 typedef void RAND_POOL;
 
-int rand_pool_add(RAND_POOL *pool,
+int ossl_rand_pool_add(RAND_POOL *pool,
                   const unsigned char *buffer, size_t len, size_t entropy);
-unsigned char *rand_pool_add_begin(RAND_POOL *pool, size_t len);
-int rand_pool_add_end(RAND_POOL *pool, size_t len, size_t entropy);
-size_t rand_pool_bytes_needed(RAND_POOL *pool, unsigned int entropy_factor);
-size_t rand_pool_entropy_available(RAND_POOL *pool);
+unsigned char *ossl_rand_pool_add_begin(RAND_POOL *pool, size_t len);
+int ossl_rand_pool_add_end(RAND_POOL *pool, size_t len, size_t entropy);
+size_t ossl_rand_pool_bytes_needed(RAND_POOL *pool, unsigned int entropy_factor);
+size_t ossl_rand_pool_entropy_available(RAND_POOL *pool);
 
 extern uint32_t __fw_rdrand32(void);
 
@@ -19,7 +19,7 @@ rand32(
   return __fw_rdrand32();
 }
 
-static size_t rand_get_bytes(size_t amount, unsigned char *entropy)
+static size_t ossl_rand_get_bytes(size_t amount, unsigned char *entropy)
 {
   uint32_t left, multi4_total;
   uint32_t tmp_value;
@@ -57,33 +57,33 @@ static size_t rand_get_bytes(size_t amount, unsigned char *entropy)
  * This is OpenSSL required interface.
  */
 size_t
-rand_pool_acquire_entropy(
+ossl_pool_acquire_entropy(
     RAND_POOL *pool)
 {
   size_t Bytes_needed;
   unsigned char *Buffer;
   size_t ret_bytes;
 
-  Bytes_needed = rand_pool_bytes_needed(pool, 1 /*entropy_factor*/);
+  Bytes_needed = ossl_rand_pool_bytes_needed(pool, 1 /*entropy_factor*/);
   if (Bytes_needed > 0)
   {
-    Buffer = rand_pool_add_begin(pool, Bytes_needed);
+    Buffer = ossl_rand_pool_add_begin(pool, Bytes_needed);
 
     if (Buffer != NULL)
     {
-      ret_bytes = rand_get_bytes(Bytes_needed, Buffer);
+      ret_bytes = ossl_rand_get_bytes(Bytes_needed, Buffer);
       if (ret_bytes < Bytes_needed)
       {
-        rand_pool_add_end(pool, 0, 0);
+        ossl_rand_pool_add_end(pool, 0, 0);
       }
       else
       {
-        rand_pool_add_end(pool, Bytes_needed, 8 * Bytes_needed);
+        ossl_rand_pool_add_end(pool, Bytes_needed, 8 * Bytes_needed);
       }
     }
   }
 
-  return rand_pool_entropy_available(pool);
+  return ossl_rand_pool_entropy_available(pool);
 }
 
 /*
@@ -91,13 +91,13 @@ rand_pool_acquire_entropy(
  *
  * This is OpenSSL required interface.
  */
-int rand_pool_add_nonce_data(
+int ossl_pool_add_nonce_data(
     RAND_POOL *pool)
 {
   uint8_t data[16];
-  rand_get_bytes(sizeof(data), data);
+  ossl_rand_get_bytes(sizeof(data), data);
 
-  return rand_pool_add(pool, (unsigned char *)&data, sizeof(data), 0);
+  return ossl_rand_pool_add(pool, (unsigned char *)&data, sizeof(data), 0);
 }
 
 /*
@@ -105,13 +105,13 @@ int rand_pool_add_nonce_data(
  *
  * This is OpenSSL required interface.
  */
-int rand_pool_add_additional_data(
+int ossl_rand_pool_add_additional_data(
     RAND_POOL *pool)
 {
   uint8_t data[16];
-  rand_get_bytes(sizeof(data), data);
+  ossl_rand_get_bytes(sizeof(data), data);
 
-  return rand_pool_add(pool, (unsigned char *)&data, sizeof(data), 0);
+  return ossl_rand_pool_add(pool, (unsigned char *)&data, sizeof(data), 0);
 }
 
 /*
@@ -119,7 +119,7 @@ int rand_pool_add_additional_data(
  *
  * This is OpenSSL required interface.
  */
-int rand_pool_init(
+int ossl_rand_pool_init(
     void)
 {
   return 1;
@@ -130,7 +130,7 @@ int rand_pool_init(
  *
  * This is OpenSSL required interface.
  */
-void rand_pool_cleanup(
+void ossl_rand_pool_cleanup(
     void)
 {
 }
@@ -140,7 +140,7 @@ void rand_pool_cleanup(
  *
  * This is OpenSSL required interface.
  */
-void rand_pool_keep_random_devices_open(
+void ossl_rand_pool_keep_random_devices_open(
     int keep)
 {
 }
