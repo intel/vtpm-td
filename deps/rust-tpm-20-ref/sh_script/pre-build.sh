@@ -6,6 +6,7 @@ patch_mstpm20ref() {
     git reset --hard d638536
     git clean -f -d
     patch -p 1 -i ../patches/nv.diff
+    patch -p 1 -i ../patches/openssl3.1.1.diff
     popd
 }
 
