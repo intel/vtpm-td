@@ -6,6 +6,7 @@ import shutil
 import socket
 import subprocess
 import threading
+import paramiko
 import time
 import uuid
 from contextlib import contextmanager
@@ -15,6 +16,9 @@ from typing import Dict, List
 import psutil
 import tomli
 
+LOG = logging.getLogger(__name__)
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 @contextmanager
 def vtpm_context():
@@ -46,6 +50,8 @@ class VtpmTool:
         self.user_td_bios_img: str = None
         self.kernel_img: str = None
         self.guest_img: str = None
+        self.guest_username: str = None
+        self.guest_password: str = None
         self.vtpm_test_img: str = None
         self.vtpm_test_img_mount_path: str = None
         self.default_user_id: str = None
@@ -65,9 +71,7 @@ class VtpmTool:
         self.wait_tools_run_seconds = self.default_wait_tools_run_seconds
         self.user_id = self.default_user_id if use_default_user_id else self._new_guid()
 
-        # setup logger
-        self.logger = self._get_unique_logger()
-        self.logger.debug(f"Read config from file: {cfg}")
+        LOG.debug(f"Read config from file: {cfg}")
 
     @property
     def use_replica_img(self) -> bool:
@@ -97,12 +101,12 @@ class VtpmTool:
             # the encoding of `>` redirect ouput is UCS-2 (UTF-16), ref: https://uefi.org/sites/default/files/resources/UEFI_Shell_2_2.pdf 3.4.4.1
             with open(file, "r", encoding="utf-16") as f:
                 text = f.read()
-            self.logger.debug(f"Read '{file}' ok: {len(text)}")
+            LOG.debug(f"Read '{file}' ok: {len(text)}")
             if auto_delete:
                 self._exec_shell_cmd(f"sudo rm -f {file}")
             return text
         except Exception as e:
-            self.logger.error(f"An error occurred when read '{filename}': {e}")
+            LOG.error(f"An error occurred when read '{filename}': {e}")
         finally:
             self.unmount_vtpm_test_img()
         return ""
@@ -129,13 +133,13 @@ class VtpmTool:
         if self.use_replica_img:
             replica_img = self._copy_qemu_image()
             self.vtpm_test_img = replica_img
-            self.logger.debug(f"Image name updated: {self.vtpm_test_img}")
+            LOG.debug(f"Image name updated: {self.vtpm_test_img}")
 
         self.mount_vtpm_test_img()
         startup_nsh = "\n".join(startup_cmds or self.startup_cmds)
         wrote = self._write_uefi_startup_script(startup_file_content=startup_nsh)
         self.unmount_vtpm_test_img()
-        self.logger.debug(
+        LOG.debug(
             f"Write startup.nsh into qemu image '{self.vtpm_test_img}': {len(wrote)}"
         )
         return len(wrote) != 0
@@ -163,7 +167,7 @@ class VtpmTool:
                 "vtpm_td",
             ),
         )
-        self.logger.debug(f"Starting vtpm td ({self.user_id})")
+        LOG.debug(f"Starting vtpm td ({self.user_id})")
         thread_vtpm.start()
         self._threads["vtpm_td"] = thread_vtpm
         time.sleep(5)
@@ -181,7 +185,7 @@ class VtpmTool:
                 "user_td",
             ),
         )
-        self.logger.debug(f"Starting user td ({self.user_id})")
+        LOG.debug(f"Starting user td ({self.user_id})")
         thread_user.start()
         self._threads["user_td"] = thread_user
 
@@ -201,7 +205,21 @@ class VtpmTool:
             },
         ]
         self._send_qmp_cmds(QMP_SOCK, QMP_CMDS)
+        
+    def connect_ssh(self):
+        """
+        Connect vm with ssh.
+        """
+        ssh.connect(hostname="localhost", port=10038, username=self.guest_username, password=self.guest_password)
+    
+    def exec_ssh_command(self, command):
+        """
+        Execute shell command.
+        """
+        stdin, stdout, stderr = ssh.exec_command(command)
 
+        return [stdout.read().decode(), stderr.read().decode()]
+    
     def terminate_vtpm_td(self):
         """
         Terminate the vtpm td qemu process with SIGTERM alone.
@@ -237,23 +255,9 @@ class VtpmTool:
         self._td_stdout_saved = {}
 
     def _parse_toml_config(self) -> dict:
-        with open("pyproject.toml", "rb") as f:
+        with open("conf/pyproject.toml", "rb") as f:
             cfg = tomli.load(f)
         return cfg["vtpm"]["config"]
-
-    def _get_unique_logger(self) -> logging.Logger:
-        fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        lg = logging.getLogger(f"{__name__}_{self.user_id}")
-        lg.setLevel(logging.DEBUG)
-
-        log_path = Path(os.path.join(self.log_dir_name, self._inspect_pytest_tc_name()))
-        log_path.mkdir(parents=True, exist_ok=True)
-        log_name = f"{self.user_id}.log"
-        file_handler = logging.FileHandler(os.path.join(log_path, log_name), "w+")
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(fmt)
-        lg.addHandler(file_handler)
-        return lg
 
     def _try_terminate_procs(self, popen: subprocess.Popen):
         if not popen:
@@ -262,11 +266,11 @@ class VtpmTool:
             root = psutil.Process(popen.pid)
             root_cmd = " ".join(root.cmdline())
             childs = root.children(recursive=True)
-            self.logger.debug(
+            LOG.debug(
                 f"Terminate subprocess {list(map(lambda p: p.cmdline()[0], childs))} launched by '{root_cmd}'"
             )
         except psutil.NoSuchProcess:
-            self.logger.error("Failed to terminate subprocess: NoSuchProcess")
+            LOG.error("Failed to terminate subprocess: NoSuchProcess")
             return
         for child in childs:
             child.terminate()
@@ -283,13 +287,13 @@ class VtpmTool:
             with open(file, "w+") as f:
                 f.write(startup_file_content)
         except Exception as e:
-            self.logger.error(f"An error occurred when write 'tmp-usertd-startup': {e}")
+            LOG.error(f"An error occurred when write 'tmp-usertd-startup': {e}")
             return ""
         _, stderr = self._exec_shell_cmd(
             command=f"sudo cp {file} {os.path.join(self.vtpm_test_img_mount_path, 'startup.nsh')}"
         )
         if len(stderr) != 0:
-            self.logger.error(f"An error occurred when copy file: {stderr}")
+            LOG.error(f"An error occurred when copy file: {stderr}")
             return ""
         return startup_file_content
 
@@ -310,30 +314,30 @@ class VtpmTool:
                 }
         log_msg = f"Execute `{command}`, stdout: {stdout or 'null'}, stderr: {stderr or 'null'}"
         if stderr:
-            self.logger.warning(log_msg)
+            LOG.warning(log_msg)
         else:
-            self.logger.debug(log_msg)
+            LOG.debug(log_msg)
         return (stdout, stderr)
 
     def _send_qmp_cmds(self, unix_sock: str, cmds: List[dict]):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(unix_sock)
-        self.logger.debug(f"Socket connected: {unix_sock}")
+        LOG.debug(f"Socket connected: {unix_sock}")
         # receive hello msg
         r = sock.recv(1024)
         r_str = r.decode("utf-8").replace("\n", "").replace("\r", "")
-        self.logger.debug(f"QMP recv: {r_str}")
+        LOG.debug(f"QMP recv: {r_str}")
         # send commands
         for command_json in cmds:
             send_str = json.dumps(command_json)
             send_str += "\n"
-            self.logger.debug(f"QMP send: {send_str.encode('utf-8')}")
+            LOG.debug(f"QMP send: {send_str.encode('utf-8')}")
             sock.sendall(send_str.encode("utf-8"))
             time.sleep(0.5)
 
             r = sock.recv(1024)
             r_str = r.decode("utf-8").replace("\n", "").replace("\r", "")
-            self.logger.debug(f"QMP recv: {r_str}")
+            LOG.debug(f"QMP recv: {r_str}")
         sock.close()
 
     def _inspect_pytest_tc_name(self):
@@ -353,15 +357,15 @@ class VtpmTool:
         prototype_img = self.vtpm_test_img
         replica_img = f"{os.path.basename(prototype_img)}.{self.user_id}"
         if Path(replica_img).exists():
-            self.logger.debug(
+            LOG.debug(
                 f"Replica image won't be created because '{replica_img}' exists"
             )
             return replica_img
         try:
             dst = shutil.copy2(prototype_img, replica_img)
-            self.logger.debug(f"Replica image created: {dst}")
+            LOG.debug(f"Replica image created: {dst}")
         except Exception as e:
-            self.logger.error(
+            LOG.error(
                 f"An error occurred when copy from {prototype_img} to {replica_img}"
             )
             return None
