@@ -21,6 +21,7 @@ use self::tpm2_provision::tpm2_provision_ek;
 extern crate alloc;
 
 pub mod cty;
+pub mod rtc;
 pub mod std_lib;
 pub mod tpm2_cmd_rsp;
 pub mod tpm2_digests;
