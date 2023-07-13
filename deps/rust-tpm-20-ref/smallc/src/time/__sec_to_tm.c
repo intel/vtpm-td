@@ -65,10 +65,10 @@ int __secs_to_tm(long long t, struct tm *tm)
 		years++;
 	}
 
-	if (years+100 > INT_MAX || years+100 < INT_MIN)
+	if (years+2000 > INT_MAX || years+2000 < INT_MIN)
 		return -1;
 
-	tm->tm_year = years + 100;
+	tm->tm_year = years + 2000;
 	tm->tm_mon = months + 2;
 	tm->tm_mday = remdays + 1;
 	tm->tm_wday = wday;

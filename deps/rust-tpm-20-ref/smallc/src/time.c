@@ -3,17 +3,18 @@
 
 const char __utc[] = "UTC";
 
+extern time_t __fw_sys_time();
+
 time_t time(time_t *t)
 {
 
-	// TBD: need impl
 	time_t current_time = 0;
-	current_time = 1639526405;
+	current_time = __fw_sys_time();
 	if (t != NULL)
 	{
 		*t = current_time;
 	}
-	return (time_t)1639526405;
+	return (time_t)__fw_sys_time();
 }
 
 extern int __secs_to_tm(long long t, struct tm *tm);

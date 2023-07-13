@@ -10,6 +10,8 @@ global = { path = "../global" }
 log = "0.4.13"
 rust-tpm-20-ref = { path = "../../deps/rust-tpm-20-ref" }
 spin = "0.9.2"
+x86_64 = "0.14"
+time = { version = "0.3", default-features = false }
 
 [dependencies.lazy_static]
 version = "1.0"

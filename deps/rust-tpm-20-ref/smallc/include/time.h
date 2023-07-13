@@ -5,7 +5,7 @@
 
 #ifndef _use_time_t
 #define _use_time_t
-typedef size_t time_t;
+typedef signed long time_t;
 #endif // _use_time_t
 
 struct tm

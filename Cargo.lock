@@ -734,6 +734,8 @@ dependencies = [
  "log",
  "rust-tpm-20-ref",
  "spin 0.9.8",
+ "time",
+ "x86_64",
 ]
 
 [[package]]
