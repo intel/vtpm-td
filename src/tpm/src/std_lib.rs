@@ -4,7 +4,7 @@
 
 #![cfg_attr(test, allow(unused_imports))]
 use alloc::collections::BTreeMap;
-use core::alloc::Layout;
+use core::{alloc::Layout, ptr::null};
 #[allow(unused, non_snake_case, non_upper_case_globals, non_camel_case_types)]
 use core::{ffi::c_void, ptr::null_mut};
 use lazy_static::lazy_static;
@@ -61,7 +61,9 @@ lazy_static! {
 /// This function is unsafe
 pub unsafe extern "C" fn __fw_malloc(size: usize) -> *mut c_void {
     let addr = alloc::alloc::alloc(Layout::from_size_align_unchecked(size, 1)) as *mut c_void;
-    MALLOC_TABLE.lock().insert(addr as usize, size);
+    if addr != null_mut() {
+        MALLOC_TABLE.lock().insert(addr as usize, size);
+    }
     addr
 }
 
@@ -70,21 +72,37 @@ pub unsafe extern "C" fn __fw_malloc(size: usize) -> *mut c_void {
 ///
 /// This function is unsafe because of the parameter of ptr
 pub unsafe extern "C" fn __fw_free(ptr: *mut c_void) {
+    let mut remove = false;
     if let Some(size) = MALLOC_TABLE.lock().get(&(ptr as usize)) {
-        alloc::alloc::dealloc(ptr as *mut u8, Layout::from_size_align_unchecked(*size, 1))
+        alloc::alloc::dealloc(ptr as *mut u8, Layout::from_size_align_unchecked(*size, 1));
+        remove = true;
+    }
+
+    if remove {
+        MALLOC_TABLE.lock().remove_entry(&(ptr as usize));
     }
 }
 
 #[no_mangle]
 /// # Safety
 pub unsafe extern "C" fn __fw_realloc(ptr: *mut c_void, new_size: usize) -> *mut c_void {
+    let mut ptr_new: *mut c_void = null_mut();
+    let mut old_size: usize = 0;
     if let Some(size) = MALLOC_TABLE.lock().get(&(ptr as usize)) {
-        return alloc::alloc::realloc(
+        old_size = *size;
+        ptr_new = alloc::alloc::realloc(
             ptr as *mut u8,
-            Layout::from_size_align_unchecked(*size, 1),
+            Layout::from_size_align_unchecked(old_size, 1),
             new_size,
         ) as *mut c_void;
     } else {
         return null_mut();
     }
+
+    if ptr_new != null_mut() {
+        MALLOC_TABLE.lock().remove_entry(&(ptr as usize));
+        MALLOC_TABLE.lock().insert(ptr_new as usize, new_size);
+    }
+
+    ptr_new
 }
