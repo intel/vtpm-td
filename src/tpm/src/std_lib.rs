@@ -61,7 +61,9 @@ lazy_static! {
 /// This function is unsafe
 pub unsafe extern "C" fn __fw_malloc(size: usize) -> *mut c_void {
     let addr = alloc::alloc::alloc(Layout::from_size_align_unchecked(size, 1)) as *mut c_void;
-    MALLOC_TABLE.lock().insert(addr as usize, size);
+    if addr != null_mut() {
+        MALLOC_TABLE.lock().insert(addr as usize, size);
+    }
     addr
 }
 
@@ -70,20 +72,30 @@ pub unsafe extern "C" fn __fw_malloc(size: usize) -> *mut c_void {
 ///
 /// This function is unsafe because of the parameter of ptr
 pub unsafe extern "C" fn __fw_free(ptr: *mut c_void) {
-    if let Some(size) = MALLOC_TABLE.lock().get(&(ptr as usize)) {
-        alloc::alloc::dealloc(ptr as *mut u8, Layout::from_size_align_unchecked(*size, 1))
+    if MALLOC_TABLE.lock().contains_key(&(ptr as usize)) {
+        let size = *MALLOC_TABLE.lock().get(&(ptr as usize)).unwrap();
+        alloc::alloc::dealloc(ptr as *mut u8, Layout::from_size_align_unchecked(size, 1));
+        MALLOC_TABLE.lock().remove_entry(&(ptr as usize));
     }
 }
 
 #[no_mangle]
 /// # Safety
 pub unsafe extern "C" fn __fw_realloc(ptr: *mut c_void, new_size: usize) -> *mut c_void {
-    if let Some(size) = MALLOC_TABLE.lock().get(&(ptr as usize)) {
-        return alloc::alloc::realloc(
+    if MALLOC_TABLE.lock().contains_key(&(ptr as usize)) {
+        let old_size = *MALLOC_TABLE.lock().get(&(ptr as usize)).unwrap();
+        let ptr_new = alloc::alloc::realloc(
             ptr as *mut u8,
-            Layout::from_size_align_unchecked(*size, 1),
+            Layout::from_size_align_unchecked(old_size, 1),
             new_size,
         ) as *mut c_void;
+
+        if ptr_new != null_mut() {
+            MALLOC_TABLE.lock().remove_entry(&(ptr as usize));
+            MALLOC_TABLE.lock().insert(ptr_new as usize, new_size);
+        }
+
+        ptr_new
     } else {
         return null_mut();
     }
