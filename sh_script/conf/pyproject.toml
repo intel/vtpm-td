@@ -1,5 +1,5 @@
 [vtpm.config]
-qemu="/usr/local/bin/qemu-system-x86_64"
+qemu="/usr/mvp/bin/qemu-system-x86_64"
 vtpm_td_script = "launch_vtpm_td.sh"
 user_td_script = "launch_user_td.sh"
 vtpm_td_bios_img = "../../run-vtpm-td/vtpmtd.bin"
