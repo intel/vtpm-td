@@ -34,4 +34,11 @@ debug/
 # Executables
 *.out
 
+#Makefile.in
+deps/rust-tpm-20-ref/openssl-stubs/Makefile.in
+
+#build folder
 deps/rust-tpm-20-ref/openssl-stubs/crypto/
+deps/rust-tpm-20-ref/openssl-stubs/include/
+deps/rust-tpm-20-ref/openssl-stubs/providers/
+deps/rust-tpm-20-ref/openssl-stubs/conf-include/
