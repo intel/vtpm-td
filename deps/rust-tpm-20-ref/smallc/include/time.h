@@ -23,7 +23,19 @@ struct tm
 	const char *__tm_zone;
 };
 
+struct timeval 
+{
+	long tv_sec;      /* time value, in seconds */
+	long tv_usec;     /* time value, in microseconds */
+};
+struct timezone 
+{
+	int	tz_minuteswest;	/* minutes west of Greenwich */
+	int	tz_dsttime;	    /* type of dst correction */
+};
+
 time_t time(time_t *);
 struct tm *gmtime(const time_t *);
+int gettimeofday ( struct timeval *tv , struct timezone *tz );
 
 #endif //_TIME_H
