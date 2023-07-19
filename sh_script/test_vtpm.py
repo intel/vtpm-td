@@ -34,14 +34,35 @@ def test_launch_tdvf_without_vtpm():
     assert content and Utils.EVENT_ERR_FLAG in content
 
 
-def test_check_eventlog():
+def test_launch_tdvf_with_vtpm_shell():
     with vtpm_context() as ctx:
-        ctx.generate_startup_into_vtpm_test_img(["fs0:", "Tcg2DumpLog.efi > event.log"])
+        ctx.generate_startup_into_vtpm_test_img(
+            [
+                "fs0:",
+                "Tcg2DumpLog.efi > event.log",
+                "RtmrDump.efi > rtmrdump.log",
+                "acpidump.efi -n tdtk > acpidump.log",
+            ],
+            )
         ctx.default_run_and_terminate()
-        content = ctx.read_log(filename="event.log")
-    assert content and Utils.EVENT_ERR_FLAG not in content
+        eventlog_content = ctx.read_log(filename="event.log")
+        acpi_content = ctx.read_log(filename="acpidump.log")
+        rtmr_content = ctx.read_log(filename="rtmrdump.log")
+        
+    rtmr0, rtmr1, rtmr2, rtmr3 = [
+        Utils.extract_rtmr_value(rtmr_content, i) for i in range(4)
+    ]
 
+    assert eventlog_content and Utils.EVENT_ERR_FLAG not in eventlog_content
+    assert acpi_content and Utils.TDTK_FLAG in acpi_content
+    # check RTMR0 and RTMR3 - should not be zero
+    assert rtmr0 and any(c != "0" for c in rtmr0)
+    assert rtmr3 and any(c != "0" for c in rtmr3)
 
+    # check RTMR1 and RTMR2 - are equal with fixed value
+    expected_value = "879606558AC3776B815615CE42F361976430D931D5DA09D77E0C5EC08CC76D00F5D6CF5EB704B9ED19FF7CCCF47C9083"
+    assert rtmr1 == rtmr2 and rtmr1 == expected_value    
+    
 def test_reset_tdvm():
     with vtpm_context() as ctx:
         ctx.generate_startup_into_vtpm_test_img(
@@ -58,36 +79,6 @@ def test_reset_tdvm():
         content_after = ctx.read_log(filename="event1.log", auto_delete=False)
 
     assert content_before and content_before == content_after
-
-
-def test_check_acpi_table():
-    with vtpm_context() as ctx:
-        ctx.generate_startup_into_vtpm_test_img(
-            ["fs0:", "acpidump.efi -n tdtk > acpidump.log"]
-        )
-        ctx.default_run_and_terminate()
-        content = ctx.read_log(filename="acpidump.log")
-    assert content and Utils.TDTK_FLAG in content
-
-
-def test_check_rtmr():
-    with vtpm_context() as ctx:
-        ctx.generate_startup_into_vtpm_test_img(["fs0:", "RtmrDump.efi > rtmrdump.log"])
-        ctx.default_run_and_terminate()
-        content = ctx.read_log(filename="rtmrdump.log")
-
-    rtmr0, rtmr1, rtmr2, rtmr3 = [
-        Utils.extract_rtmr_value(content, i) for i in range(4)
-    ]
-
-    # check RTMR0 and RTMR3 - should not be zero
-    assert rtmr0 and any(c != "0" for c in rtmr0)
-    assert rtmr3 and any(c != "0" for c in rtmr3)
-
-    # check RTMR1 and RTMR2 - are equal with fixed value
-    expected_value = "879606558AC3776B815615CE42F361976430D931D5DA09D77E0C5EC08CC76D00F5D6CF5EB704B9ED19FF7CCCF47C9083"
-    assert rtmr1 == rtmr2 and rtmr1 == expected_value
-
 
 def test_2_vtpm_2_user(count_overwrite: int = None):
     total = count_overwrite or 2
@@ -194,8 +185,7 @@ def test_vtpm_command_nvread():
         f'tpm2_nvread -C o -s 12 1'
     ] 
     
-    with vtpm_context() as ctx:
-        ctx.wait_tools_run_seconds = 60
+    with vtpm_context() as ctx:     
         ctx.start_vtpm_td()
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
@@ -211,11 +201,10 @@ def test_vtpm_command_nvextend():
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
     2. Run tpm command tpm2_extend
     """
-    
+
     LOG.info("Create TDVM with vTPM device")
     
     with vtpm_context() as ctx:
-        ctx.wait_tools_run_seconds = 80
         ctx.start_vtpm_td()
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
@@ -255,7 +244,6 @@ def test_vtpm_command_unseal():
     ] 
     
     with vtpm_context() as ctx:
-        ctx.wait_tools_run_seconds = 60
         ctx.start_vtpm_td()
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
@@ -283,7 +271,6 @@ def test_vtpm_command_load():
     ]
     
     with vtpm_context() as ctx:
-        ctx.wait_tools_run_seconds = 60
         ctx.start_vtpm_td()
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
@@ -301,8 +288,7 @@ def test_vtpm_command_pcrread():
     """
     LOG.info("Create TDVM with vTPM device")
     
-    with vtpm_context() as ctx:
-        ctx.wait_tools_run_seconds = 60
+    with vtpm_context() as ctx:  
         ctx.start_vtpm_td()
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
@@ -333,8 +319,7 @@ def test_vtpm_command_pcrextend():
     
     LOG.info("Create TDVM with vTPM device")
     
-    with vtpm_context() as ctx:
-        ctx.wait_tools_run_seconds = 60
+    with vtpm_context() as ctx:    
         ctx.start_vtpm_td()
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
@@ -367,8 +352,7 @@ def test_vtpm_command_quote():
     
     LOG.info("Create TDVM with vTPM device")
     
-    with vtpm_context() as ctx:
-        ctx.wait_tools_run_seconds = 60
+    with vtpm_context() as ctx:  
         ctx.start_vtpm_td()
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
