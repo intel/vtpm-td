@@ -17,8 +17,6 @@ import psutil
 import tomli
 
 LOG = logging.getLogger(__name__)
-ssh = paramiko.SSHClient()
-ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 @contextmanager
 def vtpm_context():
@@ -70,6 +68,8 @@ class VtpmTool:
         self.startup_cmds = self.default_startup_cmds
         self.wait_tools_run_seconds = self.default_wait_tools_run_seconds
         self.user_id = self.default_user_id if use_default_user_id else self._new_guid()
+        
+        self.ssh = None
 
         LOG.debug(f"Read config from file: {cfg}")
 
@@ -210,13 +210,25 @@ class VtpmTool:
         """
         Connect vm with ssh.
         """
-        ssh.connect(hostname="localhost", port=10038, username=self.guest_username, password=self.guest_password)
+        timeout = 60
+        if self.ssh == None:
+                self.ssh = paramiko.SSHClient()
+                self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        while(timeout > 0):
+            try:
+                self.ssh.connect(hostname="localhost", port=10038, username=self.guest_username, password=self.guest_password)
+                return
+            except Exception:
+                time.sleep(1)
+                timeout -= 1
+        if timeout == 0:
+            raise BaseException("Connection time out")
     
     def exec_ssh_command(self, command):
         """
         Execute shell command.
         """
-        stdin, stdout, stderr = ssh.exec_command(command)
+        stdin, stdout, stderr = self.ssh.exec_command(command)
 
         return [stdout.read().decode(), stderr.read().decode()]
     
