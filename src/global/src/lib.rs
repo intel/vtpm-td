@@ -93,3 +93,23 @@ pub fn sensitive_data_cleanup<T: Sized>(t: &mut T) {
     };
     bytes.zeroize();
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    const MAX_VTPM_OPERATION_ENUM: u8 = 4;
+
+    #[test]
+    fn test_try_form() {
+        let num = [0, 1, 2, 3, 4, 5, 6];
+        for i in num {
+            let res = TdVtpmOperation::try_from(i);
+            if i > MAX_VTPM_OPERATION_ENUM {
+                assert_eq!(res.unwrap_err(), VtpmError::InvalidParameter);
+            } else {
+                assert!(res.is_ok())
+            }
+        }
+    }
+}
