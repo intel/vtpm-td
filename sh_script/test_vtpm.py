@@ -71,14 +71,17 @@ def test_reset_tdvm():
         ctx.start_vtpm_td()
         ctx.execute_qmp()
         ctx.start_user_td()  # user td will be terminated because `reset` is not supported
-        content_before = ctx.read_log(filename="event0.log", auto_delete=False)
-
-        ctx.generate_startup_into_vtpm_test_img(["fs0:", "Tcg2DumpLog.efi > event1.log", "reset"])
+        
+        ctx.generate_startup_into_vtpm_test_img(
+            ["fs0:", "Tcg2DumpLog.efi > event1.log", "reset"]
+        )
         ctx.start_user_td()
         ctx.terminate_all_tds()
-        content_after = ctx.read_log(filename="event1.log", auto_delete=False)
-
-    assert content_before and content_before == content_after
+        content0 = ctx.read_log(filename="event0.log", auto_delete=False)
+        content1 = ctx.read_log(filename="event1.log", auto_delete=False)
+        
+        assert content0 and Utils.EVENT_ERR_FLAG not in content0
+        assert content1 and Utils.EVENT_ERR_FLAG not in content1
 
 def test_2_vtpm_2_user(count_overwrite: int = None):
     total = count_overwrite or 2

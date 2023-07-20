@@ -282,7 +282,7 @@ class VtpmTool:
                 f"Terminate subprocess {list(map(lambda p: p.cmdline()[0], childs))} launched by '{root_cmd}'"
             )
         except psutil.NoSuchProcess:
-            LOG.error("Failed to terminate subprocess: NoSuchProcess")
+            LOG.debug("Failed to terminate subprocess: NoSuchProcess")
             return
         for child in childs:
             child.terminate()
