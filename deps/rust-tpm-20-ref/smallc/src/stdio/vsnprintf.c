@@ -1,5 +1,3 @@
-// TBD:  Check license !!!
-
 /* snprintf - compatibility implementation of snprintf, vsnprintf
  *
  * Copyright (c) 2013, NLnet Labs. All rights reserved.
@@ -33,6 +31,12 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*
+   Copyright (c) 2022 - 2023 Intel Corporation
+   SPDX-License-Identifier: Apache-2.0
+*/
+
 #define HAVE_STDINT_H
 
 #include <stdio.h>

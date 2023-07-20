@@ -45,3 +45,6 @@ deps/rust-tpm-20-ref/openssl-stubs/crypto/
 deps/rust-tpm-20-ref/openssl-stubs/include/
 deps/rust-tpm-20-ref/openssl-stubs/providers/
 deps/rust-tpm-20-ref/openssl-stubs/conf-include/
+
+#smallc objecs
+deps/rust-tpm-20-ref/smallc/obj/

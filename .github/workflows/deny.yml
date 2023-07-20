@@ -22,8 +22,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      with:
-        submodules: recursive
+    - run: git submodule update --init --recursive
     - run: bash sh_script/pre-build.sh
     - uses: EmbarkStudios/cargo-deny-action@v1
       with:

@@ -22,8 +22,9 @@ jobs:
       steps:
         - name: Checkout vTPM-Td Sources
           uses: actions/checkout@v2
-          with:
-            submodules: recursive
+
+        - name: Initialize and update submodules
+          run: git submodule update --init --recursive
         
         - name: Install LLVM and Clang
           uses: KyleMayes/install-llvm-action@v1
