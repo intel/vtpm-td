@@ -8,7 +8,7 @@ use core::convert::TryInto;
 
 /// This file follow *TDX Guest Host Communication Interface(GHCI)* v1.5
 use byteorder::{ByteOrder, LittleEndian};
-use global::VtpmResult;
+use global::{VtpmError, VtpmResult};
 use td_uefi_pi::pi::guid::Guid;
 
 /// Common Status Code for response.
@@ -102,6 +102,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> AsMut<[u8]> for Packet<T> {
 ///
 pub fn build_response_header(service_guid: Guid, data_buffer: &mut [u8]) -> VtpmResult<usize> {
     let data_buffer_len = data_buffer.len();
+    if data_buffer_len < HEADER_LEN {
+        return Err(VtpmError::InvalidParameter);
+    }
     let mut packet = Packet::new_unchecked(data_buffer);
     packet.set_guid(service_guid);
     packet.set_length(data_buffer_len as u32);

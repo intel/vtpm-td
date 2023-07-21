@@ -9,7 +9,7 @@ use super::{COMMAND_WAIT_FOR_REQUEST, DEFAULT_VERSION};
 /// 5.1.7 vTPM TD WaitForCommunication
 ///
 use byteorder::{ByteOrder, LittleEndian};
-use global::VtpmResult;
+use global::{VtpmError, VtpmResult};
 use td_uefi_pi::pi::guid::Guid;
 
 /// Table 5-15: vTPM TD WaitForCommunication Command
@@ -72,6 +72,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> AsMut<[u8]> for Packet<T> {
 pub fn build_command_header(data_buffer: &mut [u8], vtpm_id: u128) -> VtpmResult<usize> {
     // TODO: check
     let data_buffer_len = data_buffer.len();
+    if data_buffer_len < HEADER_LEN {
+        return Err(VtpmError::InvalidParameter);
+    }
     let mut packet = Packet::new_unchecked(data_buffer);
     packet.set_version(DEFAULT_VERSION);
     packet.set_command(COMMAND_WAIT_FOR_REQUEST);
