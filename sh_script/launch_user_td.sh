@@ -1,3 +1,7 @@
+# Copyright (c) 2022 - 2023 Intel Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 #!/bin/bash
 
 QEMU=/usr/local/bin/qemu-system-x86_64
