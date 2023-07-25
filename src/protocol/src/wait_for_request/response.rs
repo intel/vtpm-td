@@ -99,7 +99,6 @@ pub fn get_inner(buf: &'_ [u8]) -> &'_ [u8] {
 /// return success and failed.
 ///
 pub fn build_response_header(data_buffer: &mut [u8], vtpm_id: u128) -> VtpmResult<usize> {
-    // TODO: check
     let data_buffer_len = data_buffer.len();
     if data_buffer_len < HEADER_LEN {
         return Err(VtpmError::InvalidParameter);

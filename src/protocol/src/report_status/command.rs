@@ -59,7 +59,6 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         LittleEndian::write_u128(&mut buf[field::TDVM_ID], vtpm_id);
     }
     pub fn set_data(&mut self, data: &[u8]) -> VtpmResult<usize> {
-        // TODO: check
         let buf = self.buffer.as_mut();
         let buf_data_len = buf.len() - HEADER_LEN;
         let data_len = data.len();
