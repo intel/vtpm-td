@@ -70,7 +70,6 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> AsMut<[u8]> for Packet<T> {
 /// return success and failed.
 ///
 pub fn build_command_header(data_buffer: &mut [u8], vtpm_id: u128) -> VtpmResult<usize> {
-    // TODO: check
     let data_buffer_len = data_buffer.len();
     if data_buffer_len < HEADER_LEN {
         return Err(VtpmError::InvalidParameter);
