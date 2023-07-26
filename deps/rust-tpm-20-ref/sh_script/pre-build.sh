@@ -7,6 +7,7 @@ patch_mstpm20ref() {
     git clean -f -d
     patch -p 1 -i ../patches/nv.diff
     patch -p 1 -i ../patches/openssl3.1.1.diff
+    patch -p 1 -i ../patches/BaseTypes.diff
     popd
 }
 
