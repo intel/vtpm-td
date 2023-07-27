@@ -62,3 +62,46 @@ fn sign_ecdsa_asym_algo(
         data: full_signature,
     })
 }
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use ring::rand::SystemRandom;
+    use ring::signature::{self, EcdsaKeyPair};
+    #[test]
+    fn test_asym_sign() {
+        let mut data = [2u8; 0x100];
+        let base_hash_algo = SpdmBaseHashAlgo::TPM_ALG_SHA_384;
+        let base_asym_algo = SpdmBaseAsymAlgo::TPM_ALG_ECDSA_ECC_NIST_P384;
+        GLOBAL_SPDM_DATA.lock().valid = true;
+        let rand = SystemRandom::new();
+        let pkcs8_bytes =
+            EcdsaKeyPair::generate_pkcs8(&signature::ECDSA_P384_SHA384_ASN1_SIGNING, &rand)
+                .map_err(|_| 0);
+
+        assert_eq!(pkcs8_bytes.is_err(), false);
+        let pkcs8 = pkcs8_bytes.unwrap();
+        let res = GLOBAL_SPDM_DATA.lock().set_pkcs8(pkcs8.as_ref());
+        assert_eq!(res.is_err(), false);
+
+        let res = asym_sign(base_hash_algo, base_asym_algo, &mut data);
+        assert_eq!(res.is_none(), false);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_sign_ecdsa_asym_algo_other_algo() {
+        let mut data = [2u8; 96];
+        sign_ecdsa_asym_algo(&ring::signature::ECDSA_P256_SHA256_FIXED_SIGNING, &mut data);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_asym_sign_other_algo() {
+        let mut data = [2u8; 0x100];
+        let base_hash_algo = SpdmBaseHashAlgo::TPM_ALG_SHA_256;
+        let base_asym_algo = SpdmBaseAsymAlgo::TPM_ALG_ECDSA_ECC_NIST_P256;
+        asym_sign(base_hash_algo, base_asym_algo, &mut data);
+    }
+}

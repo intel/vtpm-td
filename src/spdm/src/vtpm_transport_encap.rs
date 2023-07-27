@@ -223,3 +223,163 @@ impl SpdmTransportEncap for VtpmTransportEncap {
         VTPM_MAX_RANDOME_DATA_COUNT
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    const DATA_SIZE: usize = 0x100;
+    const TEST_SPDM_BUFFER_SIZE: usize = 0x100;
+    const TEST_TRANSPORT_BUFFER_SIZE: usize = 0x1024;
+    const INVALID_TEST_TRANSPORT_BUFFER_SIZE: usize = 0x10;
+    const VTPM_MESSAGE_HEADER_SIZE: usize = 4;
+    const VTPM_APP_MESSAGE_HEADER_SIZE: usize = 1;
+
+    #[test]
+    fn test_get_sequence_number_count() {
+        let mut vtpmtransport: VtpmTransportEncap = VtpmTransportEncap::default();
+        assert_eq!(
+            vtpmtransport.get_sequence_number_count(),
+            VTPM_SEQUENCE_NUM_COUNT
+        );
+    }
+
+    #[test]
+    fn test_get_max_random_count() {
+        let mut vtpmtransport: VtpmTransportEncap = VtpmTransportEncap::default();
+        assert_eq!(
+            vtpmtransport.get_max_random_count(),
+            VTPM_MAX_RANDOME_DATA_COUNT
+        );
+    }
+
+    #[test]
+    fn test_vtpmtransport_appmessage_header() {
+        let test: VtpmTransportAppMessageHeader = VtpmTransportAppMessageHeader {
+            message_type: VtpmTransportAppMessageType::VtpmTransportAppMessageTypeSpdm,
+        };
+        let mut bytes = [1u8; DATA_SIZE];
+        let mut writer = Writer::init(&mut bytes);
+        let res = test.encode(&mut writer);
+        assert_eq!(res.is_err(), false);
+        let bytes = [1u8; DATA_SIZE];
+        let mut reader = Reader::init(&bytes);
+        let res = VtpmTransportAppMessageHeader::read(&mut reader);
+        assert_eq!(res.is_none(), false);
+    }
+
+    #[test]
+    fn test_vtpmtransport_message_header() {
+        let test = VtpmTransportMessageHeader {
+            message_length: 2,
+            version: 1,
+            message_type: VtpmTransportMessageType::VtpmTransportMessageTypeSecureSpdm,
+        };
+        let mut bytes = [1u8; DATA_SIZE];
+        let mut writer = Writer::init(&mut bytes);
+        let res = test.encode(&mut writer);
+        assert_eq!(res.is_err(), false);
+        let bytes = [1u8; DATA_SIZE];
+        let mut reader = Reader::init(&bytes);
+        let res = VtpmTransportMessageType::read(&mut reader);
+        assert_eq!(res.is_none(), false);
+        let mut reader = Reader::init(&[]);
+        let res = VtpmTransportMessageType::read(&mut reader);
+        assert_eq!(res.is_none(), true);
+    }
+
+    #[test]
+    fn test_encap() {
+        let mut vtpm_encap = VtpmTransportEncap::default();
+        let spdm_buffer = [1u8; TEST_SPDM_BUFFER_SIZE];
+        let mut buffer = [0u8; TEST_TRANSPORT_BUFFER_SIZE];
+        let res = vtpm_encap.encap(&spdm_buffer, &mut buffer, false);
+        assert_eq!(res.is_err(), false);
+        assert_eq!(res.unwrap(), spdm_buffer.len() + VTPM_MESSAGE_HEADER_SIZE);
+        let res = vtpm_encap.encap(&spdm_buffer, &mut buffer, true);
+        assert_eq!(res.is_err(), false);
+        assert_eq!(res.unwrap(), spdm_buffer.len() + VTPM_MESSAGE_HEADER_SIZE);
+    }
+
+    #[test]
+    fn test_encap_app() {
+        let mut vtpm_encap = VtpmTransportEncap::default();
+        let app_message_buffer = [1u8; TEST_SPDM_BUFFER_SIZE];
+        let mut app_data_buffer = [0u8; TEST_TRANSPORT_BUFFER_SIZE];
+        let res = vtpm_encap.encap_app(&app_message_buffer, &mut app_data_buffer, false);
+        assert_eq!(res.is_err(), false);
+        assert_eq!(
+            res.unwrap(),
+            app_message_buffer.len() + VTPM_APP_MESSAGE_HEADER_SIZE
+        );
+        let res = vtpm_encap.encap_app(&app_message_buffer, &mut app_data_buffer, true);
+        assert_eq!(res.is_err(), false);
+        assert_eq!(
+            res.unwrap(),
+            app_message_buffer.len() + VTPM_APP_MESSAGE_HEADER_SIZE
+        );
+    }
+
+    #[test]
+    fn test_encap_invalid_buffer() {
+        let mut vtpm_encap = VtpmTransportEncap::default();
+        let spdm_buffer = [1u8; TEST_SPDM_BUFFER_SIZE];
+        let mut buffer = [0u8; INVALID_TEST_TRANSPORT_BUFFER_SIZE];
+        let res = vtpm_encap.encap(&spdm_buffer, &mut buffer, false);
+        assert!(res.is_err());
+        let res = vtpm_encap.encap_app(&spdm_buffer, &mut buffer, false);
+        assert!(res.is_err());
+        let res = vtpm_encap.encap(&spdm_buffer, &mut [], false);
+        assert!(res.is_err());
+        let spdm_buffer = [0u8; TEST_SPDM_BUFFER_SIZE];
+        let mut buffer = [0u8; TEST_SPDM_BUFFER_SIZE];
+        let res = vtpm_encap.encap(&spdm_buffer, &mut buffer, false);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_decap() {
+        let mut vtpm_encap = VtpmTransportEncap::default();
+        let spdm_buffer = [0u8; TEST_SPDM_BUFFER_SIZE];
+        let mut buffer = [0u8; TEST_TRANSPORT_BUFFER_SIZE];
+        let res = vtpm_encap.decap(&spdm_buffer, &mut buffer);
+        assert_eq!(res.unwrap().0, spdm_buffer.len() - VTPM_MESSAGE_HEADER_SIZE);
+        let spdm_buffer = [0x02; TEST_SPDM_BUFFER_SIZE];
+        let res = vtpm_encap.decap(&spdm_buffer, &mut buffer);
+        assert_eq!(res.unwrap().0, spdm_buffer.len() - VTPM_MESSAGE_HEADER_SIZE);
+    }
+
+    #[test]
+    fn test_decap_app() {
+        let mut vtpm_encap = VtpmTransportEncap::default();
+        let spdm_buffer = [0u8; TEST_SPDM_BUFFER_SIZE];
+        let mut buffer = [0u8; TEST_TRANSPORT_BUFFER_SIZE];
+        let res = vtpm_encap.decap_app(&spdm_buffer, &mut buffer);
+        assert_eq!(
+            res.unwrap().0,
+            spdm_buffer.len() - VTPM_APP_MESSAGE_HEADER_SIZE
+        );
+        let spdm_buffer = [0x03; TEST_SPDM_BUFFER_SIZE];
+        let res = vtpm_encap.decap_app(&spdm_buffer, &mut buffer);
+        assert_eq!(
+            res.unwrap().0,
+            spdm_buffer.len() - VTPM_APP_MESSAGE_HEADER_SIZE
+        );
+    }
+
+    #[test]
+    fn test_decap_invalid_buffer() {
+        let mut vtpm_encap = VtpmTransportEncap::default();
+        let mut buffer = [0u8; INVALID_TEST_TRANSPORT_BUFFER_SIZE];
+        let spdm_buffer = [1u8; TEST_SPDM_BUFFER_SIZE];
+        let res = vtpm_encap.decap(&spdm_buffer, &mut buffer);
+        assert!(res.is_err());
+        let res = vtpm_encap.decap_app(&spdm_buffer, &mut buffer);
+        assert!(res.is_err());
+        let res = vtpm_encap.decap(&spdm_buffer, &mut []);
+        assert!(res.is_err());
+        let res = vtpm_encap.decap(&[], &mut []);
+        assert!(res.is_err());
+        let res = vtpm_encap.decap_app(&spdm_buffer, &mut []);
+        assert!(res.is_err());
+    }
+}
