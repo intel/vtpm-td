@@ -110,3 +110,59 @@ pub fn build_response_header(service_guid: Guid, data_buffer: &mut [u8]) -> Vtpm
     packet.set_length(data_buffer_len as u32);
     Ok(data_buffer_len)
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    const BUFFER_SIZE: usize = 0x1000;
+    const PACKET_BUFFER_SIZE: usize = 0x100;
+    const INVALID_DATA_BUFFER_SIZE: usize = HEADER_LEN - 1;
+    const GUID_BUFFER: [u8; 16] = [0xff; 16];
+
+    #[test]
+    fn test_packet() {
+        let mut buffer = [0u8; PACKET_BUFFER_SIZE];
+        let mut packet = Packet::new_unchecked(&mut buffer);
+        let guid: Guid = Guid::from_bytes(&GUID_BUFFER);
+        packet.set_guid(guid);
+        let length = PACKET_BUFFER_SIZE as u32;
+        packet.set_length(length);
+
+        assert_eq!(packet.guid(), guid);
+        assert_eq!(packet.length(), length);
+        packet.as_mut()[0] = 1;
+        let status = packet.status();
+        assert_eq!(status, 0);
+        for data in packet.data() {
+            assert_eq!(*data, 0);
+        }
+    }
+
+    #[test]
+    fn test_build_response_header() {
+        let mut data_buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
+        let guid: Guid = Guid::from_bytes(&GUID_BUFFER);
+        let res = build_response_header(guid, &mut data_buffer);
+        assert_eq!(res.unwrap(), data_buffer.len());
+        assert_eq!(data_buffer[field::GUID], GUID_BUFFER);
+        assert_eq!(
+            LittleEndian::read_u32(&data_buffer[field::LENGTH]),
+            data_buffer.len() as u32
+        );
+    }
+
+    #[test]
+    fn test_zerodata() {
+        let guid: Guid = Guid::from_bytes(&GUID_BUFFER);
+        let res = build_response_header(guid, &mut []);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_invalid_data() {
+        let mut data_buffer: [u8; INVALID_DATA_BUFFER_SIZE] = [0; INVALID_DATA_BUFFER_SIZE];
+        let guid: Guid = Guid::from_bytes(&GUID_BUFFER);
+        let res = build_response_header(guid, &mut []);
+        assert!(res.is_err());
+    }
+}

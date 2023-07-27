@@ -100,3 +100,51 @@ pub fn build_command_header_and_size(
     packet.set_length(data_buffer_len as u32);
     Ok(data_buffer_len)
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    const BUFFER_SIZE: usize = 0x1000;
+    const GUID_BUFFER: [u8; 16] = [0xff; 16];
+
+    #[test]
+    fn test_packet() {
+        let mut buffer = [0u8; BUFFER_SIZE];
+        let mut packet = Packet::new_unchecked(&mut buffer);
+        let guid: Guid = Guid::from_bytes(&GUID_BUFFER);
+        packet.set_guid(guid);
+        let length = BUFFER_SIZE as u32;
+        packet.set_length(length);
+        packet.as_mut()[0] = 1;
+        assert_eq!(packet.as_ref()[field::GUID], GUID_BUFFER);
+        assert_eq!(
+            LittleEndian::read_u32(&packet.as_ref()[field::LENGTH]),
+            length
+        );
+    }
+
+    #[test]
+    fn test_build_cmd_header() {
+        let mut data_buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
+        let guid: Guid = Guid::from_bytes(&GUID_BUFFER);
+        let res = build_command_header(guid, &mut data_buffer);
+        assert_eq!(res.unwrap(), data_buffer.len());
+        assert_eq!(data_buffer[field::GUID], GUID_BUFFER);
+        assert_eq!(
+            LittleEndian::read_u32(&data_buffer[field::LENGTH]),
+            data_buffer.len() as u32
+        );
+        let res = build_command_header_and_size(guid, &mut data_buffer);
+        assert_eq!(res.unwrap(), data_buffer.len());
+        assert_eq!(data_buffer[field::GUID], GUID_BUFFER);
+    }
+
+    #[test]
+    fn test_zerodata() {
+        let guid: Guid = Guid::from_bytes(&GUID_BUFFER);
+        let res = build_command_header(guid, &mut []);
+        assert!(res.is_err());
+        let res = build_command_header_and_size(guid, &mut []);
+        assert!(res.is_err());
+    }
+}
