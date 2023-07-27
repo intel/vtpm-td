@@ -33,6 +33,16 @@ cargo install cargo-xbuild
 
 3. [NASM](https://www.nasm.us/)
 
+### Dependant projects
+rust-vtpm-td depends on below projects
+| project|path| comments|
+|--------|----|---------|
+|[ms-tpm-20-ref](https://github.com/microsoft/ms-tpm-20-ref/tree/d638536d0fe01acd5e39ffa1bd100b3da82d92c7)|[deps/rust-tpm-20-ref/ms-tpm-20-ref](./deps/rust-tpm-20-ref/ms-tpm-20-ref/)|An official TCG reference implementation of the TPM 2.0 Specification|
+|[musl](https://git.musl-libc.org/cgit/musl)|[deps/rust-tpm-20-ref/smallc/musl](./deps/rust-tpm-20-ref/smallc/musl/)|An Implementation of the C standard library|
+|[openssl](https://github.com/openssl/openssl/tree/2cf4e90eaaf7402bf038b158dbdacd0a15561fb7)|[deps/rust-tpm-20-ref/openssl](./deps/rust-tpm-20-ref/openssl/)|A full-strength general cryptographic library|
+|[rust-spdm](https://github.com/intel/rust-spdm/tree/4b100862a050a79e9cdacbfbc7ef16b0b0662aca)|[deps/rust-spdm](./deps/rust-spdm/)|A rust version SPDM implementation|
+|[td-shim](https://github.com/confidential-containers/td-shim/tree/abc721e6796bbc723da2aa2c1bdacd3bb2e0f661)|[deps/td-shim](./deps/td-shim/)|A simplified TDX virtual firmware for the simplified kernel for TD container|
+
 ### Prepare source code
 
 ```
