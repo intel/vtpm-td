@@ -12,7 +12,7 @@ fn main() {
     println!(
         "cargo:rustc-link-search=native={}",
         rust_tpm_20_ref_path
-            .join("smallc")
+            .join("smallc/lib")
             .as_os_str()
             .to_str()
             .unwrap()
