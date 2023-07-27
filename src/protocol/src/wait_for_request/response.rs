@@ -109,3 +109,59 @@ pub fn build_response_header(data_buffer: &mut [u8], vtpm_id: u128) -> VtpmResul
     packet.set_tdvm_id(vtpm_id);
     Ok(data_buffer_len)
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    const BUFFER_SIZE: usize = 0x1000;
+    const PACKET_BUFFER_SIZE: usize = 0x100;
+    const INVALID_DATA_BUFFER_SIZE: usize = HEADER_LEN - 1;
+    #[test]
+    fn test_packet() {
+        let mut data_buffer = [0u8; PACKET_BUFFER_SIZE];
+        let version = 100 as u8;
+        let command = 0xff as u8;
+        let vtpm_id = 100 as u128;
+        let mut packet = Packet::new_unchecked(&mut data_buffer);
+        packet.set_version(version);
+        packet.set_command(command);
+        packet.set_tdvm_id(vtpm_id);
+        assert_eq!(packet.version(), version);
+        packet.as_mut()[field::VERSION] = 1;
+        assert_eq!(packet.as_ref()[field::VERSION], 1);
+        assert_eq!(packet.command(), command);
+        assert_eq!(packet.vtpm_id(), vtpm_id);
+        assert_eq!(packet.operation(), 0);
+        for data in packet.data() {
+            assert_eq!(*data, 0);
+        }
+        packet.as_mut()[field::DATA][1] = 1;
+        let res = get_inner(&data_buffer);
+        assert_eq!(res[1], 1);
+    }
+
+    #[test]
+    fn test_build_response_header() {
+        let mut data_buffer = [0u8; BUFFER_SIZE];
+        let vtpmid = 101 as u128;
+        let res = build_response_header(&mut data_buffer, vtpmid);
+        assert_eq!(res.unwrap(), data_buffer.len());
+        assert_eq!(
+            LittleEndian::read_u128(&data_buffer[field::TDVM_ID]),
+            vtpmid
+        );
+    }
+
+    #[test]
+    fn test_zerodata() {
+        let res = build_response_header(&mut [], 0);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_invalid_data() {
+        let mut data_buffer = [0u8; INVALID_DATA_BUFFER_SIZE];
+        let res = build_response_header(&mut data_buffer, 0);
+        assert!(res.is_err());
+    }
+}
