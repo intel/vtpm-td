@@ -20,8 +20,9 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-        with:
-          submodules: recursive
+
+      - name: Initialize and update submodules
+        run: git submodule update --init --recursive
 
       # Install first since it's needed to build NASM
       - name: Install LLVM and Clang
@@ -64,8 +65,9 @@ jobs:
 
       - name: Checkout sources
         uses: actions/checkout@v2
-        with:
-          submodules: recursive
+
+      - name: Initialize and update submodules
+        run: git submodule update --init --recursive
 
       - name: Install toolchain with rustfmt available
         uses: actions-rs/toolchain@v1
