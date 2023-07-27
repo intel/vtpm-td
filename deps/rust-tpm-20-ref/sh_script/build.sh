@@ -7,6 +7,9 @@ BUILD_OPT="build"
 
 function clean() {
     pushd smallc
+    pushd musl
+    git clean -f -d
+    popd
     make clean
     popd
 
@@ -23,7 +26,9 @@ function clean() {
 
 function build() {
     pushd smallc
-    CC=clang AR=llvm-ar make
+    make init
+    make all
+    make install
     popd
 
     pushd openssl-stubs
