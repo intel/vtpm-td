@@ -228,7 +228,7 @@ impl SpdmConnection {
                             // do nothing
                         } else {
                             log::error!(
-                                "Unexpected state! {0:x?} : {1:x?}",
+                                "Unexpected state - 1! {0:x?} : {1:x?}",
                                 self.session_state,
                                 current_session_state
                             );
@@ -248,7 +248,7 @@ impl SpdmConnection {
                             do_startup_tpm = true;
                         } else {
                             log::error!(
-                                "Unexpected state! {0:?} : {1:?}",
+                                "Unexpected state - 2! {0:?} : {1:?}",
                                 self.session_state,
                                 current_session_state
                             );
@@ -274,7 +274,7 @@ impl SpdmConnection {
                             do_shutdown_tpm = true;
                         } else {
                             log::error!(
-                                "Unexpected state! {0:?} : {1:?}",
+                                "Unexpected state - 3! {0:?} : {1:?}",
                                 self.session_state,
                                 current_session_state
                             );
@@ -297,6 +297,7 @@ impl SpdmConnection {
             } else if do_reset_context {
                 log::info!("Reset spdm-session\n");
                 context.common.reset_context();
+                self.session_state = SpdmSessionState::SpdmSessionNotStarted;
                 self.shutdown_tpm();
             }
 
