@@ -164,3 +164,8 @@ $QEMU \
   -no-hpet \
   -nodefaults
 ```
+## Verify
+After booting up to TD guest OS, vTPM features can be used as normal TPM. It can be verified by:
+* [tpm2-tools](doc/verify-vtpm-features.md#tpm2-tools)
+* [Linux IMA (Integrity Measurement Architecture)](doc/verify-vtpm-features.md#linux-ima)
+* [Keylime](doc/verify-vtpm-features.md#keylime)
