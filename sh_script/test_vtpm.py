@@ -69,6 +69,7 @@ def test_launch_tdvf_with_vtpm_shell():
     
 def test_reset_tdvm():
     with vtpm_context() as ctx:
+        ctx.wait_tools_run_seconds = 30
         ctx.generate_startup_into_vtpm_test_img(
             ["fs0:", "Tcg2DumpLog.efi > event0.log", "reset"]
         )
@@ -153,6 +154,7 @@ def test_stress_reset_500_cycles(cycle_overwrite: int = None):
 
 def test_send_create_command_twice_with_qmp():
     with vtpm_context() as ctx:
+        ctx.wait_tools_run_seconds = 30
         ctx.generate_startup_into_vtpm_test_img(["fs0:", "Tcg2DumpLog.efi > event.log"])
         ctx.start_vtpm_td()
         ctx.execute_qmp()
