@@ -376,3 +376,120 @@ def test_vtpm_command_quote():
             runner = ctx.exec_ssh_command(cmd)
             assert runner[1] == "", "Failed to execute remote command"
         ctx.terminate_all_tds() 
+        
+def test_vtpm_simple_attestation_with_tpm2_tools():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run simple attestation with tpm2-tools
+    """
+    
+    LOG.info("Create TDVM with vTPM device")
+    
+    with vtpm_context() as ctx:  
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        # Device-Node creating the endorsement-key and the attestation-identity-key
+        LOG.info("Creating the EK and AIK")
+        cmd0_list = [
+            f'tpm2_createek \
+                --ek-context rsa_ek.ctx \
+                --key-algorithm rsa \
+                --public rsa_ek.pub',
+            f'tpm2_createak --ek-context rsa_ek.ctx \
+                --ak-context rsa_ak.ctx \
+                --key-algorithm rsa \
+                --hash-algorithm sha256 \
+                --signing-algorithm rsassa \
+                --public rsa_ak.pub --private rsa_ak.priv --ak-name rsa_ak.name'
+        ] 
+        for cmd in cmd0_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+        
+        # EK WA
+        LOG.info("EK provision WA") 
+        cmd1_list = [
+            # f'openssl genrsa -out ek.key 2048',
+            # f'openssl req -new-key ek.key -out ek.csr',
+            # f'openssl x509 -req -days 365 -in ek.csr -signkey ek.key -out ek.crt',
+            f'tpm2_nvdefine 0x01c00002 -C o -a "ownerread|policyread|policywrite|ownerwrite|authread|authwrite"',
+            f'tpm2_nvwrite 0x01c00002  -C o -i ek.crt'
+        ] 
+        for cmd in cmd1_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+        
+        # Device-Node retrieving the endorsement-key-certificate to send to the Privacy-CA
+        LOG.info("Retrieving EK and send to Provacy-CA") 
+        cmd2_script = '''
+                  #!/bin/bash\n
+                  RSA_EK_CERT_NV_INDEX=0x01C00002\n
+                  NV_SIZE=`tpm2_nvreadpublic $RSA_EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output rsa_ek_cert.bin $RSA_EK_CERT_NV_INDEX\n
+                  sed 's/-/+/g;s/_/\//g;s/%3D/=/g;s/^{.*certificate":"//g;s/"}$//g;' rsa_ek_cert.bin | base64 --decode > rsa_ek_cert.bin'''
+        cmd2_list = [
+            f'echo {cmd2_script} > cmd2.sh',
+            f'bash cmd2.sh'
+        ] 
+                    
+        for cmd in cmd2_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+            
+        # “Privacy-CA“ and the “Device-Node“ performing a credential activation challenge in order to verify 
+        # the AIK is bound to the EK from the EK-certificate originally shared by the “Device-Node“
+        LOG.info("Verify AIK is bound to the EK") 
+        cmd3_script = '''
+                #!/bin/bash\n
+                file_size=`stat --printf="%s" rsa_ak.name`\n
+                loaded_key_name=`cat rsa_ak.name | xxd -p -c $file_size`\n
+                echo "this is my secret" > file_input.data\n
+                tpm2_makecredential --tcti none --encryption-key rsa_ek.pub --secret file_input.data --name $loaded_key_name --credential-blob cred.out\n
+                tpm2_startauthsession --policy-session --session session.ctx\n
+                TPM2_RH_ENDORSEMENT=0x4000000B\n
+                tpm2_policysecret -S session.ctx -c $TPM2_RH_ENDORSEMENT\n
+                tpm2_activatecredential --credentialedkey-context rsa_ak.ctx --credentialkey-context rsa_ek.ctx --credential-blob cred.out --certinfo-data actcred.out --credentialkey-auth "session:session.ctx"\n
+                tpm2_flushcontext session.ctx'''
+        cmd3_list = [
+            f'echo {cmd3_script} > cmd3.sh',
+            f'bash cmd3.sh'
+        ] 
+        
+        for cmd in cmd3_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            LOG.info(runner[1])
+            if "WARN: Tool optionally uses SAPI. Continuing with tcti=none" not in runner[1]:
+                assert runner[1] == "", "Failed to execute remote command"
+        
+        # “Device-Node“ generating the PCR attestation quote on request from the “Service-Provider“ 
+        # and verifying the attestation quote generated and signed by the “Device-Node“
+        LOG.info("Gen PCR attestation quote and verify attestation quote") 
+        cmd4_list = [
+            f'echo "12345678" > SERVICE_PROVIDER_NONCE',
+            f'tpm2_quote \
+                --key-context rsa_ak.ctx \
+                --pcr-list sha256:0,1,2 \
+                --message pcr_quote.plain \
+                --signature pcr_quote.signature \
+                --qualification SERVICE_PROVIDER_NONCE \
+                --hash-algorithm sha256 \
+                --pcr pcr.bin',
+            f'tpm2_checkquote \
+                --public rsa_ak.pub \
+                --message pcr_quote.plain \
+                --signature pcr_quote.signature \
+                --qualification SERVICE_PROVIDER_NONCE \
+                --pcr pcr.bin'
+        ] 
+        for cmd in cmd4_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+        
+        ctx.terminate_all_tds()
