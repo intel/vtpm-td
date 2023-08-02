@@ -1,0 +1,53 @@
+on:
+  push:
+    paths-ignore:
+      - "**.md"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+
+name: Library Crates Unit Test
+
+env:
+  AS: nasm
+  AR: llvm-ar
+  CC: clang
+  NIGHTLY_RUST_TOOLCHAIN: nightly-2022-11-15
+  TOOLCHAIN_PROFILE: minimal
+
+jobs:
+  lib-test:
+    name: Build Library Crates
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Initialize and update submodules
+        run: git submodule update --init --recursive
+
+      # Install first since it's needed to build NASM
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "10.0"
+          directory: ${{ runner.temp }}/llvm
+
+      - name: install NASM
+        uses: ilammy/setup-nasm@v1
+
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: ${{ env.TOOLCHAIN_PROFILE }}
+          toolchain: ${{ env.NIGHTLY_RUST_TOOLCHAIN }}
+          override: true
+
+      - name: Preparation Work
+        run: bash sh_script/pre-build.sh
+      
+      - name: Unit Test
+        run: bash sh_script/unit_test.sh
