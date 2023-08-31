@@ -13,8 +13,8 @@ env:
   TOOLCHAIN_PROFILE: minimal
 
 jobs:
-  system_compile:
-    name: Run vTPM Integration Test
+  config-A:
+    name: Run vTPM Integration Test with congfig-A TDVF
     runs-on: [self-hosted, vtpm]
 
     steps:
@@ -38,7 +38,7 @@ jobs:
           bash sh_script/build.sh
           cp target/x86_64-unknown-none/release/vtpmtd.bin ../run-vtpm-td
       
-      - name: Build TDVF
+      - name: Build config-A TDVF
         run: |
           pushd ../vtpm-tdvf
           make -C BaseTools
@@ -52,5 +52,23 @@ jobs:
       - name: Run test
         run: |
           pushd sh_script
-          python -m pytest -k "not stress"
+          python -m pytest -k "config_A"
+          popd
+
+  
+      - name: Build Config-B TDVF
+        run: |
+          pushd ../vtpm-tdvf
+          make -C BaseTools
+          source edksetup.sh
+          rm -rf ../run-user-td
+          mkdir ../run-user-td
+          build -p OvmfPkg/IntelTdx/IntelTdxX64.dsc -t GCC5 -a X64 -b RELEASE
+          cp Build/IntelTdx/RELEASE_GCC5/FV/OVMF.fd ../run-user-td/
+          popd
+
+      - name: Run test
+        run: |
+          pushd sh_script
+          python -m pytest -k "config_B_no_sb"
           popd
