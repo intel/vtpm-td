@@ -13,7 +13,9 @@ use crate::interrupt;
 
 /// allocate one page
 fn alloc<'a>(size: usize) -> Option<&'a mut [u8]> {
-    assert!(size <= VTPM_MAX_BUFFER_SIZE);
+    if size > VTPM_MAX_BUFFER_SIZE {
+        return None;
+    }
     unsafe {
         alloc_dma_pages(1)
             .map(|address| core::slice::from_raw_parts_mut(address as *const u8 as *mut u8, size))
