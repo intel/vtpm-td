@@ -135,6 +135,11 @@ impl SpdmTransportEncap for VtpmTransportEncap {
         }
 
         let header_size = reader.used();
+
+        if header_size > transport_buffer.len() {
+            return Err(SPDM_STATUS_INVALID_PARAMETER);
+        }
+
         let payload_size = transport_buffer.len() - header_size;
 
         if spdm_buffer.len() < payload_size {
