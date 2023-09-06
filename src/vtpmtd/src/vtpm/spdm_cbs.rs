@@ -32,13 +32,10 @@ fn spdm_secure_app_message_handler(
     let tpm_cmd_size = app_buffer.len();
 
     let mut tpm_rsp: [u8; MAX_SPDM_MSG_SIZE] = [0; MAX_SPDM_MSG_SIZE];
-    let mut tpm_rsp_size = 0;
 
-    // log::info!("tpm_cmd: {:02x?}\n", tpm_cmd);
+    let (rsp_size, rsp_code) = execute_command(tpm_cmd, &mut tpm_rsp, 0);
 
-    tpm_rsp_size = execute_command(tpm_cmd, &mut tpm_rsp, 0);
-
-    Ok((tpm_rsp, tpm_rsp_size as usize))
+    Ok((tpm_rsp, rsp_size as usize))
 }
 
 pub fn register_spdm_secure_app_message_handler() -> bool {

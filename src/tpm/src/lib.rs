@@ -25,11 +25,13 @@ pub mod rtc;
 pub mod std_lib;
 pub mod tpm2_cmd_rsp;
 pub mod tpm2_digests;
-pub mod tpm2_pcr;
 pub mod tpm2_provision;
 pub mod tpm2_sys;
 
-pub fn execute_command(request: &[u8], response: &mut [u8], _vtpm_id: u128) -> u32 {
+/// execute the tpm command
+/// the first returned value indicates the size of response,
+/// the second returned value is the response_code
+pub fn execute_command(request: &[u8], response: &mut [u8], _vtpm_id: u128) -> (u32, u32) {
     let mut response_size = response.len() as u32;
     let mut response_ptr = response.as_mut_ptr();
 
@@ -40,11 +42,14 @@ pub fn execute_command(request: &[u8], response: &mut [u8], _vtpm_id: u128) -> u
 
     let tpm_cmd = Tpm2CommandHeader::from_bytes(&buf);
     if let Some(tpm_cmd) = tpm_cmd {
-        GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = Some(tpm_cmd.command_code);
+        GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = Some(tpm_cmd.get_command_code());
+        // log::info!(" cmd code: 0x{:x?}\n ", tpm_cmd.get_command_code());
     } else {
         log::error!("Invalid Tpm2CommandHeader!\n");
         log::error!("  {:02x?}\n", &buf);
         GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = None;
+        GLOBAL_TPM_DATA.lock().last_tpm_rsp_code = None;
+        return (0, 0);
     }
 
     unsafe {
@@ -59,17 +64,21 @@ pub fn execute_command(request: &[u8], response: &mut [u8], _vtpm_id: u128) -> u
 
     buf.copy_from_slice(&response[..TPM2_RESPONSE_HEADER_SIZE]);
     let tpm_rsp = Tpm2ResponseHeader::from_bytes(&buf);
+    let rsp_code: u32;
     if let Some(tpm_rsp) = tpm_rsp {
-        GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = Some(tpm_rsp.response_code);
+        rsp_code = tpm_rsp.get_response_code();
+        GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = Some(rsp_code);
+        // log::info!("rsp code: {:x?}\n", rsp_code);
     } else {
         log::error!("Invalid Tpm2ResponseHeader!\n");
         log::error!("  {:02x?}\n", &buf);
         GLOBAL_TPM_DATA.lock().last_tpm_rsp_code = None;
+        return (0, 0);
     }
 
     // log::info!("tpm rsp: {:02x?}\n", &response[..response_size as usize]);
 
-    response_size
+    (response_size, rsp_code)
 }
 
 pub fn start_tpm() {
