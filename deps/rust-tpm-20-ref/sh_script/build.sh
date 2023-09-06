@@ -3,6 +3,7 @@
 SHA256="ALG_NO"
 SHA384="ALG_NO"
 SHA512="ALG_NO"
+MAX_NVINDEX_SIZE=4096
 BUILD_OPT="build"
 
 function clean() {
@@ -47,7 +48,7 @@ function build() {
     popd
 
     pushd tpm
-    CC=clang AR=llvm-ar make ALG_SHA256=${SHA256} ALG_SHA384=${SHA384} ALG_SHA512=${SHA512}
+    CC=clang AR=llvm-ar make ALG_SHA256=${SHA256} ALG_SHA384=${SHA384} ALG_SHA512=${SHA512} MAX_NV_INDEX_SIZE=${MAX_NVINDEX_SIZE}
     popd
 }
 
