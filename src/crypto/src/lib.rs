@@ -6,6 +6,7 @@
 
 extern crate alloc;
 
+pub mod ek_cert;
 pub mod resolve;
 pub mod td_report;
 pub mod x509;
