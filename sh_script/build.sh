@@ -58,6 +58,11 @@ function build() {
     -- target/x86_64-unknown-none/release/ResetVector.bin target/x86_64-unknown-none/release/td-shim \
     -p ../../target/x86_64-unknown-none/release/vtpmtd \
     -t executable \
+    -o target/x86_64-unknown-none/release/vtpmtd.bin
+
+  cargo run -p td-shim-tools --features=enroller \
+    --bin td-shim-enroll target/x86_64-unknown-none/release/vtpmtd.bin \
+    -f 4fd44f20-0ee5-4362-9414-a04b32469bc9 ../../config/intel_root_sbx.der \
     -o ../../target/x86_64-unknown-none/release/vtpmtd.bin
   popd
 }
