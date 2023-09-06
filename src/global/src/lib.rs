@@ -55,6 +55,9 @@ pub enum VtpmError {
     ///
     TpmLibError,
 
+    ///
+    EkProvisionError,
+
     Unknown,
 }
 pub type VtpmResult<T = ()> = core::result::Result<T, VtpmError>;
