@@ -57,7 +57,36 @@ pub extern "C" fn _start(hob: u64, payload: u64) -> ! {
 
     arch::init::pre_init(hob, &layout);
 
+    // Init internal heap
+    attestation::attest_init_heap();
+
+    // Run the global constructors
+    init(payload);
+
     arch::init::init(&layout, start_spdm_server);
 
     panic!("deadloop");
+}
+
+#[cfg(target_os = "none")]
+fn init(payload: u64) {
+    use td_loader::elf;
+
+    let elf = unsafe {
+        core::slice::from_raw_parts(
+            payload as *const u8,
+            td_layout::runtime::exec::PAYLOAD_SIZE as usize,
+        )
+    };
+
+    // Call the init functions (contains C++ constructions of global variables)
+    if let Some(range) = elf::parse_init_array_section(elf) {
+        let mut init_start = payload as usize + range.start;
+        let init_end = payload as usize + range.end;
+        while init_start < init_end {
+            let init_fn = init_start as *const fn();
+            unsafe { (*init_fn)() };
+            init_start += 8;
+        }
+    }
 }
