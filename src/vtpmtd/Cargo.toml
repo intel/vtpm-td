@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+attestation = { path = "../attestation", default-features = false }
 bitfield = "0.13.2"
 bitflags = "1.2.1"
 bitmap-allocator = { git = "https://github.com/rcore-os/bitmap-allocator", rev = "03bd9909" }
