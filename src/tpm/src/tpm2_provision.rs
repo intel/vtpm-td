@@ -2,13 +2,26 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::{
+    execute_command,
+    tpm2_cmd_rsp::{
+        command::Tpm2CommandHeader, shutdown::tpm2_shutdown, startup::tpm2_startup,
+        TPM2_CC_CREATEPRIMARY, TPM2_CC_EVICTCONTROL, TPM2_CC_NV_DEFINESPACE, TPM2_CC_NV_WRITE,
+        TPM2_COMMAND_HEADER_SIZE, TPM_RC_SUCCESS, TPM_ST_SESSIONS,
+    },
+};
+use alloc::{slice, vec::Vec};
 use attestation::get_quote;
-use crypto::{ek_cert::generate_ek_cert_chain, resolve::{ResolveError, generate_ecdsa_keypairs}};
-use eventlog::eventlog::{get_event_log, event_log_size};
-use global::{VtpmResult, VtpmError, VTPM_MAX_BUFFER_SIZE};
-use crate::{execute_command, tpm2_cmd_rsp::{startup::tpm2_startup, command::Tpm2CommandHeader, TPM_ST_SESSIONS, TPM2_CC_CREATEPRIMARY, shutdown::tpm2_shutdown, TPM2_COMMAND_HEADER_SIZE, TPM2_CC_NV_DEFINESPACE, TPM2_CC_NV_WRITE, TPM_RC_SUCCESS, TPM2_CC_EVICTCONTROL}};
-use alloc::{vec::Vec, slice};
-use ring::{digest, signature::{KeyPair, EcdsaKeyPair}};
+use crypto::{
+    ek_cert::generate_ek_cert_chain,
+    resolve::{generate_ecdsa_keypairs, ResolveError},
+};
+use eventlog::eventlog::{event_log_size, get_event_log};
+use global::{VtpmError, VtpmResult, VTPM_MAX_BUFFER_SIZE};
+use ring::{
+    digest,
+    signature::{EcdsaKeyPair, KeyPair},
+};
 
 const TPM2_EK_ECC_SECP384R1_HANDLE: u32 = 0x81010016;
 const TPM2_ALG_AES: u16 = 0x0006;
@@ -109,7 +122,7 @@ impl Tpm2EvictControlReq {
     }
 }
 
-fn tpm2_create_ek_ec384 () -> VtpmResult {
+fn tpm2_create_ek_ec384() -> VtpmResult {
     let mut keyflags: u32 = 0;
     let symkeylen: u16 = 256;
     let authpolicy_len: u16 = 32;
@@ -133,7 +146,8 @@ fn tpm2_create_ek_ec384 () -> VtpmResult {
     .concat();
 
     let authblock: Tpm2AuthBlock = Tpm2AuthBlock::new(TPM2_RS_PW, 0, 0, 0);
-    let mut hdr: Tpm2CommandHeader = Tpm2CommandHeader::new(TPM_ST_SESSIONS, 0, TPM2_CC_CREATEPRIMARY);
+    let mut hdr: Tpm2CommandHeader =
+        Tpm2CommandHeader::new(TPM_ST_SESSIONS, 0, TPM2_CC_CREATEPRIMARY);
 
     let mut public: Vec<u8> = Vec::new();
     public.extend_from_slice(&TPM2_ALG_ECC.to_be_bytes());
@@ -183,7 +197,7 @@ fn tpm2_create_ek_ec384 () -> VtpmResult {
 
 const TPM2_RH_OWNER: u32 = 0x40000001;
 
-fn tpm2_evictcontrol(curr_handle: u32, perm_handle: u32) -> VtpmResult{
+fn tpm2_evictcontrol(curr_handle: u32, perm_handle: u32) -> VtpmResult {
     let hdr: Tpm2CommandHeader = Tpm2CommandHeader::new(
         TPM_ST_SESSIONS,
         Tpm2EvictControlReq::size(),
@@ -202,7 +216,7 @@ fn tpm2_evictcontrol(curr_handle: u32, perm_handle: u32) -> VtpmResult{
     let mut rsp: [u8; VTPM_MAX_BUFFER_SIZE] = [0; VTPM_MAX_BUFFER_SIZE];
     let req = evictcontrol_req.as_slice();
 
-    let (rsp_size, rsp_code)  = execute_command(req, &mut rsp, 0);
+    let (rsp_size, rsp_code) = execute_command(req, &mut rsp, 0);
     if rsp_size == 0 || rsp_code != TPM_RC_SUCCESS {
         log::error!("Failed of tpm2_evictcontrol. code = 0x{:x?}\n", rsp_code);
         return Err(VtpmError::TpmLibError);
@@ -214,13 +228,13 @@ fn tpm2_evictcontrol(curr_handle: u32, perm_handle: u32) -> VtpmResult{
 /// Get the TPM EKpub in the TSS format (marshaled TPM2B_PUBLIC structure)
 /// TSS format e.g.: tpm2_createek -c 0x81000000 -G rsa -f tss -u /tmp/ekpub.tss
 pub fn tpm2_get_ek_pub() -> Vec<u8> {
-
     // TPM2_CC_ReadPublic 0x00000173
+    // TPM2_EK_ECC_SECP384R1_HANDLE is 0x81010016
     let cmd_req: &mut [u8] = &mut [
         0x80, 0x01, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x01, 0x73, 0x81, 0x01, 0x00, 0x16,
     ];
     let mut rsp: [u8; VTPM_MAX_BUFFER_SIZE] = [0; VTPM_MAX_BUFFER_SIZE];
-    let (rsp_size, rsp_code)  = execute_command(cmd_req, &mut rsp, 0);
+    let (rsp_size, rsp_code) = execute_command(cmd_req, &mut rsp, 0);
 
     if rsp_size == 0 || rsp_code != TPM_RC_SUCCESS {
         log::error!("Failed of tpm2_readpublic. code = 0x{:x?}\n", rsp_code);
@@ -228,7 +242,7 @@ pub fn tpm2_get_ek_pub() -> Vec<u8> {
     }
 
     // Output parameters
-    let out_parms: &[u8] = &rsp[{Tpm2CommandHeader::header_size() as usize}..];
+    let out_parms: &[u8] = &rsp[{ Tpm2CommandHeader::header_size() as usize }..];
 
     const U16_SIZE: usize = core::mem::size_of::<u16>();
 
@@ -236,8 +250,25 @@ pub fn tpm2_get_ek_pub() -> Vec<u8> {
     let size: u16 = u16::from_be_bytes(out_parms[..U16_SIZE].try_into().unwrap());
 
     // TPM2B_PUBLIC structure
-    let out_public: &[u8] = &out_parms[..{size as usize + U16_SIZE}];
-    log::info!("out_public {:x} {:02x?}\n", {out_public.len()}, out_public);
+    let tpm2b_public: &[u8] = &out_parms[..{ size as usize + U16_SIZE }];
+    let tpm2b_public_len = tpm2b_public.len();
+    // length of ECP384 is 2 * (2 + 48)
+    let unique_len: usize = 2 * (2 + 48);
+    if tpm2b_public_len < unique_len {
+        log::error!("Invalid unique of ECP384\n");
+        return Vec::new();
+    }
+
+    let mut out_public: Vec<u8> = Vec::new();
+
+    // x of eccpoint
+    let x_offset = tpm2b_public_len - unique_len + 2;
+    out_public.extend_from_slice(&tpm2b_public[x_offset..x_offset + 48]);
+    // y of eccpoint
+    let y_offset = x_offset + 48 + 2;
+    out_public.extend_from_slice(&tpm2b_public[y_offset..]);
+    // log::info!("public_key {:x} {:02x?}\n", out_public.len(), out_public);
+
     out_public.to_vec()
 }
 
@@ -248,8 +279,8 @@ fn get_td_quote(data: &[u8]) -> Result<Vec<u8>, VtpmError> {
     // Generate the TD Report that contains the ek_pub hash as nonce
     let mut td_report_data = [0u8; 64];
     td_report_data[..data_hash.as_ref().len()].copy_from_slice(data_hash.as_ref());
-    let td_report = tdx_tdcall::tdreport::tdcall_report(&td_report_data)
-        .map_err(|_| ResolveError::GetTdReport);
+    let td_report =
+        tdx_tdcall::tdreport::tdcall_report(&td_report_data).map_err(|_| ResolveError::GetTdReport);
     if td_report.is_err() {
         log::error!("Failed to get td_report.\n");
         return Err(VtpmError::EkProvisionError);
@@ -268,7 +299,7 @@ fn get_td_quote(data: &[u8]) -> Result<Vec<u8>, VtpmError> {
 
 pub fn tpm2_write_cert_nvram(cert: &[u8]) -> VtpmResult {
     if cert.len() > usize::from(u16::MAX) {
-        log::error!("ERROR: Cert size = {:#x} too big\n", {cert.len()});
+        log::error!("ERROR: Cert size = {:#x} too big\n", { cert.len() });
         return Err(VtpmError::InvalidParameter);
     }
     let nvindex_attrs: u32 = TPMA_NV_PLATFORMCREATE
@@ -289,7 +320,7 @@ pub fn tpm2_write_cert_nvram(cert: &[u8]) -> VtpmResult {
     let mut end: u16 = 0;
     loop {
         end = start + 1024;
-        if  usize::from(end) > cert.len() {
+        if usize::from(end) > cert.len() {
             end = cert.len().try_into().unwrap();
         }
         if start >= end {
@@ -298,13 +329,18 @@ pub fn tpm2_write_cert_nvram(cert: &[u8]) -> VtpmResult {
         tpm2_nv_write(nvindex, start, &cert[start as usize..end as usize])?;
         start = end;
     }
-    log::info!("INFO: Cert ({} bytes) written to the TPM NV index {:#x}\n", {cert.len()}, nvindex);
+    log::info!(
+        "INFO: Cert ({} bytes) written to the TPM NV index {:#x}\n",
+        { cert.len() },
+        nvindex
+    );
 
     Ok(())
 }
 
 fn tpm2_nvdefine_space(nvindex: u32, nvindex_attrs: u32, data_len: usize) -> VtpmResult {
-    let mut hdr: Tpm2CommandHeader = Tpm2CommandHeader::new(TPM_ST_SESSIONS, 0, TPM2_CC_NV_DEFINESPACE);
+    let mut hdr: Tpm2CommandHeader =
+        Tpm2CommandHeader::new(TPM_ST_SESSIONS, 0, TPM2_CC_NV_DEFINESPACE);
     let authblock: Tpm2AuthBlock = Tpm2AuthBlock::new(TPM2_RS_PW, 0, 0, 0);
 
     let mut nvpublic: Vec<u8> = Vec::new();
@@ -329,7 +365,7 @@ fn tpm2_nvdefine_space(nvindex: u32, nvindex_attrs: u32, data_len: usize) -> Vtp
     left_hdr.copy_from_slice(hdr.as_slice());
 
     let mut rsp: [u8; VTPM_MAX_BUFFER_SIZE] = [0; VTPM_MAX_BUFFER_SIZE];
-    let (rsp_size, rsp_code)  = execute_command(nv_req.as_slice(), &mut rsp, 0);
+    let (rsp_size, rsp_code) = execute_command(nv_req.as_slice(), &mut rsp, 0);
 
     if rsp_size == 0 || rsp_code != TPM_RC_SUCCESS {
         log::error!("Failed of tpm2_nvdefine_space. code = {:#x}\n", rsp_code);
@@ -370,7 +406,6 @@ fn tpm2_nv_write(nvindex: u32, offset: u16, data: &[u8]) -> VtpmResult {
 }
 
 fn create_ecdsa_keypairs() -> Option<EcdsaKeyPair> {
-
     let pkcs8 = generate_ecdsa_keypairs();
     if pkcs8.is_none() {
         log::error!("Failed to generate pkcs8.\n");
@@ -394,8 +429,7 @@ pub fn tpm2_provision_ek() -> VtpmResult {
     let mut ek_provisioned = false;
 
     loop {
-
-        // first call TPM2_CC_Startup    
+        // first call TPM2_CC_Startup
         if tpm2_startup().is_err() {
             break;
         }
@@ -418,7 +452,7 @@ pub fn tpm2_provision_ek() -> VtpmResult {
             break;
         }
         let key_pair = key_pair.unwrap();
-    
+
         // get td_quote
         let td_quote = get_td_quote(key_pair.public_key().as_ref());
         if td_quote.is_err() {
@@ -436,7 +470,8 @@ pub fn tpm2_provision_ek() -> VtpmResult {
         let event_log = &event_log[..size + 1];
 
         // generate ek_cert_chain
-        let ek_cert_chain = generate_ek_cert_chain (td_quote.as_slice(), event_log, ek_pub.as_slice(), &key_pair);
+        let ek_cert_chain =
+            generate_ek_cert_chain(td_quote.as_slice(), event_log, ek_pub.as_slice(), &key_pair);
         if ek_cert_chain.is_err() {
             break;
         }
