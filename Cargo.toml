@@ -6,6 +6,7 @@ default-members = [
 ]
 members = [
     "src/attestation",
+    "src/eventlog",
     "src/global",
     "src/crypto",
     "src/protocol",

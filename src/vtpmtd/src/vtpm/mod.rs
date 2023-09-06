@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-pub mod eventlog;
 pub mod spdm_cbs;
 pub mod spdm_connection;
 pub mod spdm_server;

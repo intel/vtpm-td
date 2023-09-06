@@ -1,0 +1,12 @@
+[package]
+name = "eventlog"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+  cc-measurement = { path = "../../deps/td-shim/cc-measurement"}
+  td-shim = { path = "../../deps/td-shim/td-shim", default-featuers = false }
+  td-payload = { path = "../../deps/td-shim/td-payload", features = ["tdx"] }
+  zerocopy = "0.6.1"

@@ -20,6 +20,7 @@ paste = "1.0"
 bytes = { version="1", default-features=false }
 der = {version = "0.5.1", features = ["oid", "alloc", "derive"]}
 
+eventlog = { path = "../eventlog" }
 linked_list_allocator = "0.10.2"
 log = "0.4.13"
 td-uefi-pi =  { path = "../../deps/td-shim/td-uefi-pi" }
@@ -31,7 +32,7 @@ td-loader = { path = "../../deps/td-shim/td-loader"}
 td-paging = { path = "../../deps/td-shim/td-paging" }
 td-payload = { path = "../../deps/td-shim/td-payload", features = ["tdx"] }
 td-shim = { path = "../../deps/td-shim/td-shim", default-featuers = false }
-cc-measurement = { path = "../../deps/td-shim/cc-measurement"}
+
 spdmlib = { path = "../../deps/rust-spdm/spdmlib", default-features = false, features = ["spdm-ring", "downcast", "mut-auth"]}
 codec = { path = "../../deps/rust-spdm/codec" }
 
