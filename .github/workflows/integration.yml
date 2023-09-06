@@ -13,7 +13,7 @@ env:
   TOOLCHAIN_PROFILE: minimal
 
 jobs:
-  config-A:
+  integration:
     name: Run vTPM Integration Test with congfig-A TDVF
     runs-on: [self-hosted, vtpm]
 
@@ -49,14 +49,13 @@ jobs:
           cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF.fd ../run-user-td/
           popd
 
-      - name: Run test
+      - name: Run test - Config A
         run: |
           pushd sh_script
           python -m pytest -k "config_A"
           popd
 
-  
-      - name: Build Config-B TDVF
+      - name: Build Config-B TDVF without secure boot
         run: |
           pushd ../vtpm-tdvf
           make -C BaseTools
@@ -67,8 +66,32 @@ jobs:
           cp Build/IntelTdx/RELEASE_GCC5/FV/OVMF.fd ../run-user-td/
           popd
 
-      - name: Run test
+      - name: Run test - Config B + no secure boot
         run: |
           pushd sh_script
           python -m pytest -k "config_B_no_sb"
+          popd
+      
+      - name: Build Config-B TDVF with secure boot
+        run: |
+          pushd ../vtpm-tdvf
+          make -C BaseTools
+          source edksetup.sh
+          rm -rf ../run-user-td
+          mkdir ../run-user-td
+          build -p OvmfPkg/IntelTdx/IntelTdxX64.dsc -D SECURE_BOOT_ENABLE=TRUE -t GCC5 -a X64 -b RELEASE
+          cp Build/IntelTdx/RELEASE_GCC5/FV/OVMF.fd ../run-user-td/
+          popd
+      
+      - name: Enroll OVMF.fd
+        run: |
+          SECURE_BOOT="/home/env/secure_boot"
+          GUID=`cat ${SECURE_BOOT}/myGUID.txt`
+          python sh_script/secure_boot/secure_boot.py -fd ../run-user-td/OVMF.fd -pk ${GUID} ${SECURE_BOOT}/PK.cer -kek ${GUID} ${SECURE_BOOT}/KEK.cer -db ${GUID} ${SECURE_BOOT}/DB.cer
+          python sh_script/secure_boot/var_enroll.py --fd ../run-user-td/OVMF.sb.fd -op add -n FB_NO_REBOOT -g 605dab50-e046-4300-abb6-3dd810dd8b23 -a 0x7 -d sh_script/secure_boot/FB_NO_REBOOT.bin -o ../run-user-td/OVMF.fd
+
+      - name: Run test - Config B + secure boot
+        run: |
+          pushd sh_script
+          python -m pytest -k "config_B_sb"
           popd
