@@ -105,11 +105,10 @@ pub fn start_tpm() {
             tpm2_sys::_plat__TPM_Initialize(1, null_mut());
         }
 
-        // TODO
         // Generate EK and provision
-        tpm2_provision_ek();
-
-        GLOBAL_TPM_DATA.lock().provisioned = true;
+        if tpm2_provision_ek().is_ok() {
+            GLOBAL_TPM_DATA.lock().provisioned = true;
+        }
     }
 
     GLOBAL_TPM_DATA.lock().set_tpm_active(true);
