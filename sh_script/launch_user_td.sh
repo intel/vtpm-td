@@ -18,6 +18,7 @@ LOGFILE=${LOGDIR}/usertd.${now}.log
 
 MEM=8G
 TARGET=shell
+GRUB_BOOT=0
 USERTD_ID=aabbccdd-2012-2022-1234-123456789123
 
 usage() {
@@ -30,12 +31,13 @@ Usage: $(basename "$0") [OPTION]...
   -u <user td id>           User TD ID - GUID
   -v <test vTPM image>      Test vTPM image for shell
   -t <boot to target>       Boot to [Shell/OS]
+  -g                        Grub boot to OS
   -h                        Show this help
 EOM
 }
 
 process_args() {
-    while getopts "f:q:i:k:u:v:t:h" option; do
+    while getopts "f:q:i:k:u:v:t:gh" option; do
         case "${option}" in
             f) BIOS=$OPTARG;;
             q) QEMU=$OPTARG;;
@@ -44,6 +46,7 @@ process_args() {
             u) USERTD_ID=$OPTARG;;
             v) TEST_VTPM_IMAGE=$OPTARG;;
             t) TARGET=$OPTARG;;
+            g) GRUB_BOOT=1;;
             h) usage
                exit 0
                ;;
@@ -102,33 +105,61 @@ process_args() {
                     echo "Kernel image file ${KERNEL_IMAGE} not exist. Please specify via option \"-k\""
                     exit 1
                 fi
-                QEMU_CMD="$QEMU \
-                        -accel kvm \
-                        -no-reboot \
-                        -name process=user-td-ci,debug-threads=on \
-                        -cpu host,host-phys-bits,-kvm-steal-time,-arch-lbr \
-                        -smp 1 \
-                        -m ${MEM} \
-                        -object tdx-guest,id=tdx,debug=on,vtpm-type=client,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-server-${USERTD_ID}.sock \
-                        -object memory-backend-memfd-private,id=usertd-ram2-${USERTD_ID},size=${MEM} \
-                        -machine q35,kernel_irqchip=split,confidential-guest-support=tdx,memory-backend=usertd-ram2-${USERTD_ID} \
-                        -bios ${BIOS} \
-                        -nographic \
-                        -vga none \
-                        -chardev stdio,id=mux,mux=on,signal=off \
-                        -device virtio-serial,romfile= \
-                        -device virtconsole,chardev=mux \
-                        -serial chardev:mux \
-                        -monitor chardev:mux \
-                        -drive file=${GUEST_IMAGE},if=virtio,format=qcow2 \
-                        -device virtio-net-pci,netdev=mynet0 \
-                        -netdev user,id=mynet0,hostfwd=tcp::${FORWARD_PORT}-:22 \
-                        -kernel ${KERNEL_IMAGE} \
-                        -append \"root=/dev/vda1 ro console=hvc0\" \
-                        -monitor pty \
-                        -monitor telnet:127.0.0.1:${TELNET_PORT},server,nowait \
-                        -no-hpet \
-                        -nodefaults | tee -a ${LOGFILE}"
+                if [[ ${GRUB_BOOT} == 1 ]]; then
+                    QEMU_CMD="$QEMU \
+                            -accel kvm \
+                            -no-reboot \
+                            -name process=user-td-ci,debug-threads=on \
+                            -cpu host,host-phys-bits,-kvm-steal-time,-arch-lbr \
+                            -smp 1 \
+                            -m ${MEM} \
+                            -object tdx-guest,id=tdx,debug=on,vtpm-type=client,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-server-${USERTD_ID}.sock \
+                            -object memory-backend-memfd-private,id=usertd-ram2-${USERTD_ID},size=${MEM} \
+                            -machine q35,kernel_irqchip=split,confidential-guest-support=tdx,memory-backend=usertd-ram2-${USERTD_ID} \
+                            -bios ${BIOS} \
+                            -nographic \
+                            -vga none \
+                            -chardev stdio,id=mux,mux=on,signal=off \
+                            -device virtio-serial,romfile= \
+                            -device virtconsole,chardev=mux \
+                            -serial chardev:mux \
+                            -monitor chardev:mux \
+                            -drive file=${GUEST_IMAGE},if=virtio,format=qcow2 \
+                            -device virtio-net-pci,netdev=mynet0 \
+                            -netdev user,id=mynet0,hostfwd=tcp::${FORWARD_PORT}-:22 \
+                            -monitor pty \
+                            -monitor telnet:127.0.0.1:${TELNET_PORT},server,nowait \
+                            -no-hpet \
+                            -nodefaults | tee -a ${LOGFILE}"
+                else
+                    QEMU_CMD="$QEMU \
+                            -accel kvm \
+                            -no-reboot \
+                            -name process=user-td-ci,debug-threads=on \
+                            -cpu host,host-phys-bits,-kvm-steal-time,-arch-lbr \
+                            -smp 1 \
+                            -m ${MEM} \
+                            -object tdx-guest,id=tdx,debug=on,vtpm-type=client,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-server-${USERTD_ID}.sock \
+                            -object memory-backend-memfd-private,id=usertd-ram2-${USERTD_ID},size=${MEM} \
+                            -machine q35,kernel_irqchip=split,confidential-guest-support=tdx,memory-backend=usertd-ram2-${USERTD_ID} \
+                            -bios ${BIOS} \
+                            -nographic \
+                            -vga none \
+                            -chardev stdio,id=mux,mux=on,signal=off \
+                            -device virtio-serial,romfile= \
+                            -device virtconsole,chardev=mux \
+                            -serial chardev:mux \
+                            -monitor chardev:mux \
+                            -drive file=${GUEST_IMAGE},if=virtio,format=qcow2 \
+                            -device virtio-net-pci,netdev=mynet0 \
+                            -netdev user,id=mynet0,hostfwd=tcp::${FORWARD_PORT}-:22 \
+                            -kernel ${KERNEL_IMAGE} \
+                            -append \"root=/dev/vda1 ro console=hvc0 ima_policy=critical_data noccfilter ioremap_force_shared\" \
+                            -monitor pty \
+                            -monitor telnet:127.0.0.1:${TELNET_PORT},server,nowait \
+                            -no-hpet \
+                            -nodefaults | tee -a ${LOGFILE}"
+                fi
                 ;;
         *) 
                 echo "Invalid ${TARGET}, must be [shell|os]"

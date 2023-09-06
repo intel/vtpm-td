@@ -176,19 +176,29 @@ class VtpmTool:
         self._threads["vtpm_td"] = thread_vtpm
         time.sleep(5)
 
-    def start_user_td(self, with_guest_kernel: bool = False):
+    def start_user_td(self, with_guest_kernel: bool = False, grub_boot = False):
         """
         Start user td alone.
         """
         boot_to = "os" if with_guest_kernel else "shell"
 
-        thread_user = threading.Thread(
-            target=self._exec_shell_cmd,
-            args=(
-                f"bash {self.user_td_script} -q {self.qemu} -f {self.user_td_bios_img} -i {self.guest_img} -v {self.vtpm_test_img} -k {self.kernel_img} -u {self.user_id} -t {boot_to}",
-                "user_td",
-            ),
-        )
+        if grub_boot:
+            guest_img=self.guest_img.replace("test", "test-sb")
+            thread_user = threading.Thread(
+                target=self._exec_shell_cmd,
+                args=(
+                    f"bash {self.user_td_script} -q {self.qemu} -f {self.user_td_bios_img} -i {guest_img} -v {self.vtpm_test_img} -k {self.kernel_img} -u {self.user_id} -t {boot_to} -g",
+                    "user_td",
+                ),
+            )
+        else:
+            thread_user = threading.Thread(
+                target=self._exec_shell_cmd,
+                args=(
+                    f"bash {self.user_td_script} -q {self.qemu} -f {self.user_td_bios_img} -i {self.guest_img} -v {self.vtpm_test_img} -k {self.kernel_img} -u {self.user_id} -t {boot_to}",
+                    "user_td",
+                ),
+            )
         LOG.debug(f"Starting user td ({self.user_id})")
         thread_user.start()
         self._threads["user_td"] = thread_user
@@ -235,6 +245,34 @@ class VtpmTool:
         stdin, stdout, stderr = self.ssh.exec_command(command)
 
         return [stdout.read().decode(), stderr.read().decode()]
+    
+    def create_key_enroll(self, key):
+
+        cmd = f"chmod 777 {self.fd_folder_path}\n"
+        self.get_cmd_result(cmd)
+
+        cmd = f"echo sudo /usr/local/bin/ovmfkeyenroll -fd {self.fd_folder_path}/OVMF.fd >> key-enroll.sh \\\\\n"
+        self.get_cmd_result(cmd)
+
+        cmd = f"echo -pk {key} {SECURE_BOOT_PATH}/PK.cer >> key-enroll.sh \\\\\n"
+        self.get_cmd_result(cmd)
+
+        cmd = f"echo -kek {key} {SECURE_BOOT_PATH}/KEK.cer >> key-enroll.sh \\\\\n"
+        self.get_cmd_result(cmd)
+
+        cmd = f"echo -db {key} {SECURE_BOOT_PATH}/DB.cer >> key-enroll.sh\n"
+        self.get_cmd_result(cmd)
+
+        cmd = 'ls\n'
+        out_result = self.get_cmd_result(cmd)
+
+        if "key-enroll.sh" not in out_result:
+            self.case_logger.error("not found 'key-enroll.sh'")
+            return False
+
+        cmd = 'chmod 744 key-enroll.sh\n'
+        self.get_cmd_result(cmd)
+        return True 
     
     def terminate_vtpm_td(self):
         """

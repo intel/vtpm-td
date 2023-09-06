@@ -819,3 +819,333 @@ def test_config_B_no_sb_vtpm_simple_attestation_with_tpm2_tools():
             assert runner[1] == "", "Failed to execute remote command"
         
         ctx.terminate_all_tds()
+
+"""
+Config-B:
+CC Measurement + Secure Boot
+"""
+def test_config_B_sb_launch_tdvf_without_vtpm_grub_boot():
+    with vtpm_context() as ctx:
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        # TBD - Check CCEL table
+        # TBD - Do RTMR replay
+        ctx.terminate_user_td()
+
+def test_config_B_sb_vtpm_command_nvread():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run tpm command tpm2_nvread
+    """
+    LOG.info("Create TDVM with vTPM device")
+    
+    # Run tpm command to check connectivity between user TD and vTPM TD
+    # Encrypt and decrypt some data
+    cmd_list = [
+        f'tpm2_nvdefine -C o -s 32 -a "ownerread|policywrite|ownerwrite" 1',
+        f'echo "please123abc" > nv.dat',
+        f'tpm2_nvwrite -C o -i nv.dat 1',
+        f'tpm2_nvread -C o -s 12 1'
+    ] 
+    
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        for cmd in cmd_list:
+            LOG.debug(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command" 
+        ctx.terminate_all_tds() 
+
+def test_config_B_sb_vtpm_command_nvextend():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run tpm command tpm2_extend
+    """
+
+    LOG.info("Create TDVM with vTPM device")
+    
+    with vtpm_context() as ctx:
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        # Run tpm command to check connectivity between user TD and vTPM TD
+        # Encrypt and decrypt some data
+        cmd_list = [
+            f'tpm2_nvdefine -C o -a "nt=extend|ownerread|policywrite|ownerwrite|writedefine" 1',
+            f'echo "my data" | tpm2_nvextend -C o -i- 1',
+            f'tpm2_nvread -C o 1 | xxd -p -c32'
+        ] 
+        for cmd in cmd_list:
+            LOG.debug(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "" or "WARN" in runner[1], "Failed to execute remote command" 
+        
+        assert runner[0].strip('\n') == 'db7472e3fe3309b011ec11565bce4ea6668cc8ecdef7e6fdcda5206687af3f43'
+        ctx.terminate_all_tds() 
+
+def test_config_B_sb_vtpm_command_unseal():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run tpm command tpm2_unseal
+    """
+    
+    LOG.info("Create TDVM with vTPM device")
+    
+    # Run tpm command to check connectivity between user TD and vTPM TD
+    # Encrypt and decrypt some data
+    cmd_list = [
+        f'tpm2_createprimary -c primary.ctx -Q',
+        f'tpm2_pcrread -Q -o pcr.bin sha256:0,1,2,3',
+        f'tpm2_createpolicy -Q --policy-pcr -l sha256:0,1,2,3 -f pcr.bin -L pcr.policy',
+        f'echo "secret" > data.dat',
+        f'tpm2_create -C primary.ctx -L pcr.policy -i data.dat -u seal.pub -r seal.priv -c seal.ctx -Q',
+        f'tpm2_unseal -c seal.ctx -p pcr:sha256:0,1,2,3'
+    ] 
+    
+    with vtpm_context() as ctx:
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        for cmd in cmd_list:
+            LOG.debug(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"  
+        assert runner[0].strip('\n') == 'secret'
+        ctx.terminate_all_tds() 
+
+def test_config_B_sb_vtpm_command_load():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run tpm command tpm2_loadexternal
+    """
+    LOG.info("Create TDVM with vTPM device")
+    
+    # Run tpm command to check connectivity between user TD and vTPM TD
+    # Encrypt and decrypt some data
+    cmd_list = [
+        f'tpm2_createprimary -c primary.ctx',
+        f'tpm2_create -C primary.ctx -u pub.dat -r priv.dat',
+        f'tpm2_loadexternal -C o -u pub.dat -c pub.ctx'
+    ]
+    
+    with vtpm_context() as ctx:
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        for cmd in cmd_list:
+            LOG.debug(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+        ctx.terminate_all_tds() 
+
+def test_config_B_sb_vtpm_command_pcrread():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run tpm command to read PCR and replay by evnet_logs
+    """
+    LOG.info("Create TDVM with vTPM device")
+    
+    with vtpm_context() as ctx:  
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        # Read PCR[0]
+        cmd = f'tpm2_pcrread sha256:0'
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] == ""
+        pcr0 = runner[0].split(":")[-1].strip()
+        
+        # Read PCR[0] in event log
+        cmd = f'tpm2_eventlog /sys/kernel/security/tpm0/binary_bios_measurements'
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] == "", "Failed to execute remote command"  
+        event_log_pcr0 = runner[0]
+        
+        # PCR[0] should be replayed by event log
+        LOG.debug("PCR[0]: %s", pcr0)
+        LOG.debug("PCR[0] in eventlog: %s", event_log_pcr0)
+        assert pcr0.lower() in event_log_pcr0, "Fail to replay PCR[0] in event logs"
+        ctx.terminate_all_tds() 
+
+def test_config_B_sb_vtpm_command_pcrextend():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run tpm command to extend and read PCR
+    """
+    
+    LOG.info("Create TDVM with vTPM device")
+    
+    with vtpm_context() as ctx:    
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        cmd = f'tpm2_pcrread sha256:15'
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] == "", "Failed to execute remote command"  
+        assert "0x0000000000000000000000000000000000000000000000000000000000000000" in runner[0]
+        
+        # Extend PCR 8 and read PCR
+        cmd_list = [
+            f'echo "foo" > data',
+            f'tpm2_pcrevent 15 data',
+            f'tpm2_pcrread sha256:15'
+        ]
+        for cmd in cmd_list:
+            LOG.debug(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+        
+        # New value of PCR[8] should be old one extended with sha256 of "foo"
+        assert "0x44F12027AB81DFB6E096018F5A9F19645F988D45529CDED3427159DC0032D921" in runner[0]
+        ctx.terminate_all_tds() 
+    
+def test_config_B_sb_vtpm_command_quote():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run tpm command to read PCR
+    """
+    
+    LOG.info("Create TDVM with vTPM device")
+    
+    with vtpm_context() as ctx:  
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        # Provide and verify quote
+        cmd_list = [
+            f'tpm2_createek -c 0x81010001 -G rsa -u ekpub.pem -f pem',
+            f'tpm2_createak -C 0x81010001 -c ak.ctx -G rsa -s rsassa -g sha256 -u akpub.pem -f pem -n ak.name',
+            f'tpm2_quote -c ak.ctx -l sha256:15,16,22 -q abc123 -m quote.msg -s quote.sig -o quote.pcrs -g sha256',
+            f'tpm2_checkquote -u akpub.pem -m quote.msg -s quote.sig -f quote.pcrs -g sha256 -q abc123'
+        ] 
+        for cmd in cmd_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+        ctx.terminate_all_tds() 
+        
+def test_config_B_sb_vtpm_simple_attestation_with_tpm2_tools():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run simple attestation with tpm2-tools
+    """
+    
+    LOG.info("Create TDVM with vTPM device")
+    
+    with vtpm_context() as ctx:  
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        # Device-Node creating the endorsement-key and the attestation-identity-key
+        LOG.info("Creating the EK and AIK")
+        cmd0_list = [
+            f'tpm2_createek \
+                --ek-context rsa_ek.ctx \
+                --key-algorithm rsa \
+                --public rsa_ek.pub',
+            f'tpm2_createak --ek-context rsa_ek.ctx \
+                --ak-context rsa_ak.ctx \
+                --key-algorithm rsa \
+                --hash-algorithm sha256 \
+                --signing-algorithm rsassa \
+                --public rsa_ak.pub --private rsa_ak.priv --ak-name rsa_ak.name'
+        ] 
+        for cmd in cmd0_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+        
+        # EK WA
+        LOG.info("EK provision WA") 
+        cmd1_list = [
+            # f'openssl genrsa -out ek.key 2048',
+            # f'openssl req -new-key ek.key -out ek.csr',
+            # f'openssl x509 -req -days 365 -in ek.csr -signkey ek.key -out ek.crt',
+            f'tpm2_nvdefine 0x01c00002 -C o -a "ownerread|policyread|policywrite|ownerwrite|authread|authwrite"',
+            f'tpm2_nvwrite 0x01c00002  -C o -i ek.crt'
+        ] 
+        for cmd in cmd1_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+        
+        # Device-Node retrieving the endorsement-key-certificate to send to the Privacy-CA
+        LOG.info("Retrieving EK and send to Provacy-CA") 
+        cmd2_script = '''
+                  #!/bin/bash\n
+                  RSA_EK_CERT_NV_INDEX=0x01C00002\n
+                  NV_SIZE=`tpm2_nvreadpublic $RSA_EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output rsa_ek_cert.bin $RSA_EK_CERT_NV_INDEX\n
+                  sed 's/-/+/g;s/_/\//g;s/%3D/=/g;s/^{.*certificate":"//g;s/"}$//g;' rsa_ek_cert.bin | base64 --decode > rsa_ek_cert.bin'''
+        cmd2_list = [
+            f'echo {cmd2_script} > cmd2.sh',
+            f'bash cmd2.sh'
+        ] 
+                    
+        for cmd in cmd2_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+            
+        # “Privacy-CA“ and the “Device-Node“ performing a credential activation challenge in order to verify 
+        # the AIK is bound to the EK from the EK-certificate originally shared by the “Device-Node“
+        LOG.info("Verify AIK is bound to the EK") 
+        cmd3_script = '''
+                #!/bin/bash\n
+                file_size=`stat --printf="%s" rsa_ak.name`\n
+                loaded_key_name=`cat rsa_ak.name | xxd -p -c $file_size`\n
+                echo "this is my secret" > file_input.data\n
+                tpm2_makecredential --tcti none --encryption-key rsa_ek.pub --secret file_input.data --name $loaded_key_name --credential-blob cred.out\n
+                tpm2_startauthsession --policy-session --session session.ctx\n
+                TPM2_RH_ENDORSEMENT=0x4000000B\n
+                tpm2_policysecret -S session.ctx -c $TPM2_RH_ENDORSEMENT\n
+                tpm2_activatecredential --credentialedkey-context rsa_ak.ctx --credentialkey-context rsa_ek.ctx --credential-blob cred.out --certinfo-data actcred.out --credentialkey-auth "session:session.ctx"\n
+                tpm2_flushcontext session.ctx'''
+        cmd3_list = [
+            f'echo {cmd3_script} > cmd3.sh',
+            f'bash cmd3.sh'
+        ] 
+        
+        for cmd in cmd3_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            LOG.info(runner[1])
+            if "WARN: Tool optionally uses SAPI. Continuing with tcti=none" not in runner[1]:
+                assert runner[1] == "", "Failed to execute remote command"
+        
+        # “Device-Node“ generating the PCR attestation quote on request from the “Service-Provider“ 
+        # and verifying the attestation quote generated and signed by the “Device-Node“
+        LOG.info("Gen PCR attestation quote and verify attestation quote") 
+        cmd4_list = [
+            f'echo "12345678" > SERVICE_PROVIDER_NONCE',
+            f'tpm2_quote \
+                --key-context rsa_ak.ctx \
+                --pcr-list sha256:0,1,2 \
+                --message pcr_quote.plain \
+                --signature pcr_quote.signature \
+                --qualification SERVICE_PROVIDER_NONCE \
+                --hash-algorithm sha256 \
+                --pcr pcr.bin',
+            f'tpm2_checkquote \
+                --public rsa_ak.pub \
+                --message pcr_quote.plain \
+                --signature pcr_quote.signature \
+                --qualification SERVICE_PROVIDER_NONCE \
+                --pcr pcr.bin'
+        ] 
+        for cmd in cmd4_list:
+            LOG.info(cmd)
+            runner = ctx.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+        
+        ctx.terminate_all_tds()
