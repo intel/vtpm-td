@@ -65,5 +65,4 @@ impl Tpm2CommandHeader {
     pub fn header_size() -> u32 {
         core::mem::size_of::<Self>() as u32
     }
-
 }
