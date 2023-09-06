@@ -289,6 +289,9 @@ def test_config_A_vtpm_command_pcrread():
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
     2. Run tpm command to read PCR and replay by evnet_logs
     """
+    # pcr 0 1 2 3 4 5 6 7 9
+    pcr_num = 10
+    
     LOG.info("Create TDVM with vTPM device")
     
     with vtpm_context() as ctx:  
@@ -296,23 +299,39 @@ def test_config_A_vtpm_command_pcrread():
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
         ctx.connect_ssh()
-        # Read PCR[0]
-        cmd = f'tpm2_pcrread sha256:0'
+        # Read PCR value sha256
+        cmd = f'tpm2_pcrread sha256'
         runner = ctx.exec_ssh_command(cmd)
         assert runner[1] == ""
-        pcr0 = runner[0].split(":")[-1].strip()
+        pcr256_values = []
+        for num in range(pcr_num):
+            pcr256_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
         
-        # Read PCR[0] in event log
+        # Read PCR value sha384
+        cmd = f'tpm2_pcrread sha384'
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] == ""
+        pcr384_values = []
+        for num in range(pcr_num):
+            pcr384_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
+        
+        # Read PCR value in event log
         cmd = f'tpm2_eventlog /sys/kernel/security/tpm0/binary_bios_measurements'
         runner = ctx.exec_ssh_command(cmd)
         assert runner[1] == "", "Failed to execute remote command"  
-        event_log_pcr0 = runner[0]
+        event_log_pcr = runner[0]
         
-        # PCR[0] should be replayed by event log
-        LOG.debug("PCR[0]: %s", pcr0)
-        LOG.debug("PCR[0] in eventlog: %s", event_log_pcr0)
-        assert pcr0.lower() in event_log_pcr0, "Fail to replay PCR[0] in event logs"
-        ctx.terminate_all_tds() 
+        # PCR value should be replayed by event log
+        LOG.debug("PCR[0] in eventlog: %s", event_log_pcr)
+        LOG.debug("PCR[0]: %s", pcr256_values)
+        LOG.debug("PCR[0]: %s", pcr384_values)
+
+        for num in range(pcr_num):
+            if num != 8:
+                assert pcr256_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
+                assert pcr384_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
+
+        ctx.terminate_all_tds()
 
 def test_config_A_vtpm_command_pcrextend():
     """
@@ -619,6 +638,9 @@ def test_config_B_no_sb_vtpm_command_pcrread():
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
     2. Run tpm command to read PCR and replay by evnet_logs
     """
+    # pcr 0 1 2 3 4 5 6 7 9
+    pcr_num = 10
+    
     LOG.info("Create TDVM with vTPM device")
     
     with vtpm_context() as ctx:  
@@ -626,22 +648,38 @@ def test_config_B_no_sb_vtpm_command_pcrread():
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
         ctx.connect_ssh()
-        # Read PCR[0]
-        cmd = f'tpm2_pcrread sha256:0'
+        # Read PCR value sha256
+        cmd = f'tpm2_pcrread sha256'
         runner = ctx.exec_ssh_command(cmd)
         assert runner[1] == ""
-        pcr0 = runner[0].split(":")[-1].strip()
+        pcr256_values = []
+        for num in range(pcr_num):
+            pcr256_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
         
-        # Read PCR[0] in event log
+        # Read PCR value sha384
+        cmd = f'tpm2_pcrread sha384'
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] == ""
+        pcr384_values = []
+        for num in range(pcr_num):
+            pcr384_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
+        
+        # Read PCR value in event log
         cmd = f'tpm2_eventlog /sys/kernel/security/tpm0/binary_bios_measurements'
         runner = ctx.exec_ssh_command(cmd)
         assert runner[1] == "", "Failed to execute remote command"  
-        event_log_pcr0 = runner[0]
+        event_log_pcr = runner[0]
         
-        # PCR[0] should be replayed by event log
-        LOG.debug("PCR[0]: %s", pcr0)
-        LOG.debug("PCR[0] in eventlog: %s", event_log_pcr0)
-        assert pcr0.lower() in event_log_pcr0, "Fail to replay PCR[0] in event logs"
+        # PCR value should be replayed by event log
+        LOG.debug("PCR[0] in eventlog: %s", event_log_pcr)
+        LOG.debug("PCR[0]: %s", pcr256_values)
+        LOG.debug("PCR[0]: %s", pcr384_values)
+
+        for num in range(pcr_num):
+            if num != 8:
+                assert pcr256_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
+                assert pcr384_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
+
         ctx.terminate_all_tds() 
 
 def test_config_B_no_sb_vtpm_command_pcrextend():
@@ -949,6 +987,9 @@ def test_config_B_sb_vtpm_command_pcrread():
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
     2. Run tpm command to read PCR and replay by evnet_logs
     """
+    # pcr 0 1 2 3 4 5 6 7 9
+    pcr_num = 10
+    
     LOG.info("Create TDVM with vTPM device")
     
     with vtpm_context() as ctx:  
@@ -956,23 +997,39 @@ def test_config_B_sb_vtpm_command_pcrread():
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
         ctx.connect_ssh()
-        # Read PCR[0]
-        cmd = f'tpm2_pcrread sha256:0'
+        # Read PCR value sha256
+        cmd = f'tpm2_pcrread sha256'
         runner = ctx.exec_ssh_command(cmd)
         assert runner[1] == ""
-        pcr0 = runner[0].split(":")[-1].strip()
+        pcr256_values = []
+        for num in range(pcr_num):
+            pcr256_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
         
-        # Read PCR[0] in event log
+        # Read PCR value sha384
+        cmd = f'tpm2_pcrread sha384'
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] == ""
+        pcr384_values = []
+        for num in range(pcr_num):
+            pcr384_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
+        
+        # Read PCR value in event log
         cmd = f'tpm2_eventlog /sys/kernel/security/tpm0/binary_bios_measurements'
         runner = ctx.exec_ssh_command(cmd)
         assert runner[1] == "", "Failed to execute remote command"  
-        event_log_pcr0 = runner[0]
+        event_log_pcr = runner[0]
         
-        # PCR[0] should be replayed by event log
-        LOG.debug("PCR[0]: %s", pcr0)
-        LOG.debug("PCR[0] in eventlog: %s", event_log_pcr0)
-        assert pcr0.lower() in event_log_pcr0, "Fail to replay PCR[0] in event logs"
-        ctx.terminate_all_tds() 
+        # PCR value should be replayed by event log
+        LOG.debug("PCR[0] in eventlog: %s", event_log_pcr)
+        LOG.debug("PCR[0]: %s", pcr256_values)
+        LOG.debug("PCR[0]: %s", pcr384_values)
+
+        for num in range(pcr_num):
+            if num != 8:
+                assert pcr256_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
+                assert pcr384_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
+
+        ctx.terminate_all_tds()
 
 def test_config_B_sb_vtpm_command_pcrextend():
     """
