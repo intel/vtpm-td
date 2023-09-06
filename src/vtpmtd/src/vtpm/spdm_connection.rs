@@ -5,6 +5,7 @@
 use ::crypto::resolve::{generate_certificate, generate_ecdsa_keypairs};
 use alloc::vec::Vec;
 use byteorder::{ByteOrder, LittleEndian};
+use eventlog::eventlog::{get_event_log, event_log_size};
 use global::{sensitive_data_cleanup, TdVtpmOperation, GLOBAL_SPDM_DATA, GLOBAL_TPM_DATA};
 use ring::{
     digest::digest,
@@ -36,7 +37,6 @@ use spdmlib::{
 };
 use tpm::{start_tpm, terminate_tpm};
 
-use crate::vtpm::eventlog::{event_log_size, get_event_log};
 
 fn make_config_info() -> common::SpdmConfigInfo {
     common::SpdmConfigInfo {
