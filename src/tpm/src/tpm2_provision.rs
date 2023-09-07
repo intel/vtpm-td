@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#![allow(clippy::never_loop)]
+
 use crate::{
     execute_command,
     tpm2_cmd_rsp::{

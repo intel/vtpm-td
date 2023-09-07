@@ -30,13 +30,13 @@ fn main() {
 
     // make td_migration_preparation
     Command::new("make")
-        .args(&["-C", &lib_path, "td_migration_preparation"])
+        .args(["-C", &lib_path, "td_migration_preparation"])
         .status()
         .expect("failed to run make td_migration_preparation for attestation library!");
 
     // make td_migration
     Command::new("make")
-        .args(&["-C", &lib_path, "td_migration"])
+        .args(["-C", &lib_path, "td_migration"])
         .status()
         .expect("failed to run make td_migration for attestation library!");
 
