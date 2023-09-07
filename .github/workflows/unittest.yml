@@ -49,5 +49,8 @@ jobs:
       - name: Preparation Work
         run: bash sh_script/pre-build.sh
       
-      - name: Unit Test
-        run: bash sh_script/unit_test.sh
+      - name: Unit Test for src/protocol
+        run: |
+          pushd src/protocol
+          cargo test
+          popd
