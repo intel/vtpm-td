@@ -115,8 +115,9 @@ mod test {
         packet.set_guid(guid);
         let length = BUFFER_SIZE as u32;
         packet.set_length(length);
-        packet.as_mut()[0] = 1;
         assert_eq!(packet.as_ref()[field::GUID], GUID_BUFFER);
+        packet.as_mut()[0] = 1;
+        assert_ne!(packet.as_ref()[field::GUID], GUID_BUFFER);
         assert_eq!(
             LittleEndian::read_u32(&packet.as_ref()[field::LENGTH]),
             length
