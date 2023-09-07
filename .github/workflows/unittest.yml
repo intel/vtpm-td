@@ -54,3 +54,9 @@ jobs:
           pushd src/protocol
           cargo test
           popd
+
+      - name: Unit Test for src/global
+        run: |
+          pushd src/global
+          cargo test
+          popd
