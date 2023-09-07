@@ -24,21 +24,14 @@ pub fn generate_ek_cert_chain(
 ) -> Result<alloc::vec::Vec<u8>, ResolveError> {
     // first generate ca-cert
     let ca_cert = generate_ca_cert(td_quote, ecdsa_keypair)?;
-    let ca_cert_hash = digest::digest(&digest::SHA384, ca_cert.as_slice());
 
     // then generate ek-cert
     let ek_cert = generate_ek_cert(event_log, ek_pub, ecdsa_keypair)?;
 
-    // last combine 2 certs into cert-chain
+    // last combine 2 certs into one blob
     let mut cert_chain: alloc::vec::Vec<u8> = alloc::vec::Vec::with_capacity(VTPM_MAX_BUFFER_SIZE);
-    let cert_chain_len: u16 = (4 + 48 + ca_cert.len() + ek_cert.len()) as u16;
-    cert_chain.extend_from_slice(&cert_chain_len.to_le_bytes());
-    cert_chain.extend_from_slice(&0_u16.to_le_bytes());
-    cert_chain.extend_from_slice(ca_cert_hash.as_ref());
     cert_chain.extend_from_slice(ca_cert.as_slice());
     cert_chain.extend_from_slice(ek_cert.as_slice());
-
-    assert!(cert_chain.len() == cert_chain_len as usize);
 
     Ok(cert_chain)
 }
