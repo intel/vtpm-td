@@ -56,6 +56,7 @@ pub enum ResolveError {
     GenerateCertificate(X509Error),
     SignCertificate,
     GetTdReport,
+    GetTdQuote,
 }
 
 impl From<X509Error> for ResolveError {
