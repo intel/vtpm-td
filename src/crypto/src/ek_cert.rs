@@ -5,9 +5,8 @@
 use alloc::vec;
 use der::asn1::ObjectIdentifier;
 use der::{Any, Encodable, Tag};
-use global::VTPM_MAX_BUFFER_SIZE;
+use ring::rand::SystemRandom;
 use ring::signature::{EcdsaKeyPair, KeyPair};
-use ring::{digest, rand::SystemRandom};
 
 use crate::resolve::{EXTENDED_KEY_USAGE, EXTNID_VTPMTD_EVENT_LOG, EXTNID_VTPMTD_QUOTE};
 use crate::x509::{self, Extension};
@@ -16,28 +15,9 @@ use crate::{
     x509::{AlgorithmIdentifier, X509Error},
 };
 
-pub fn generate_ek_cert_chain(
+pub fn generate_ca_cert(
     td_quote: &[u8],
     event_log: &[u8],
-    ek_pub: &[u8],
-    ecdsa_keypair: &EcdsaKeyPair,
-) -> Result<alloc::vec::Vec<u8>, ResolveError> {
-    // first generate ca-cert
-    let ca_cert = generate_ca_cert(td_quote, ecdsa_keypair)?;
-
-    // then generate ek-cert
-    let ek_cert = generate_ek_cert(event_log, ek_pub, ecdsa_keypair)?;
-
-    // last combine 2 certs into one blob
-    let mut cert_chain: alloc::vec::Vec<u8> = alloc::vec::Vec::with_capacity(VTPM_MAX_BUFFER_SIZE);
-    cert_chain.extend_from_slice(ca_cert.as_slice());
-    cert_chain.extend_from_slice(ek_cert.as_slice());
-
-    Ok(cert_chain)
-}
-
-fn generate_ca_cert(
-    td_quote: &[u8],
     ecdsa_keypair: &EcdsaKeyPair,
 ) -> Result<alloc::vec::Vec<u8>, ResolveError> {
     let mut sig_buf: alloc::vec::Vec<u8> = alloc::vec::Vec::new();
@@ -72,6 +52,11 @@ fn generate_ca_cert(
                 Some(false),
                 Some(td_quote),
             )?)?
+            .add_extension(Extension::new(
+                EXTNID_VTPMTD_EVENT_LOG,
+                Some(false),
+                Some(event_log),
+            )?)?
             .sign(&mut sig_buf, signer)?
             .build();
 
@@ -80,8 +65,7 @@ fn generate_ca_cert(
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))
 }
 
-fn generate_ek_cert(
-    event_log: &[u8],
+pub fn generate_ek_cert(
     ek_pub: &[u8],
     ecdsa_keypair: &EcdsaKeyPair,
 ) -> Result<alloc::vec::Vec<u8>, ResolveError> {
@@ -110,11 +94,6 @@ fn generate_ek_cert(
             EXTENDED_KEY_USAGE,
             Some(false),
             Some(eku.as_slice()),
-        )?)?
-        .add_extension(Extension::new(
-            EXTNID_VTPMTD_EVENT_LOG,
-            Some(false),
-            Some(event_log),
         )?)?
         .sign(&mut sig_buf, signer)?
         .build();

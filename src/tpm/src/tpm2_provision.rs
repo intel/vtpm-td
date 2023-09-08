@@ -15,7 +15,7 @@ use crate::{
 use alloc::{slice, vec::Vec};
 use attestation::get_quote;
 use crypto::{
-    ek_cert::generate_ek_cert_chain,
+    ek_cert::{self, generate_ca_cert, generate_ek_cert},
     resolve::{generate_ecdsa_keypairs, ResolveError},
 };
 use eventlog::eventlog::{event_log_size, get_event_log};
@@ -31,9 +31,11 @@ const TPM2_ALG_CFB: u16 = 0x0043;
 const TPM2_RS_PW: u32 = 0x40000009;
 const TPM2_ALG_ECC: u16 = 0x0023;
 const TPM2_ALG_SHA256: u16 = 0x000b;
+const TPM2_ALG_SHA384: u16 = 0x000c;
 const TPM2_ALG_NULL: u16 = 0x0010;
 const TPM2_RH_ENDORSEMENT: u32 = 0x4000000b;
 const TPM2_RH_PLATFORM: u32 = 0x4000000c;
+const TPM2_RH_OWNER: u32 = 0x40000001;
 
 const TPMA_NV_PLATFORMCREATE: u32 = 0x40000000;
 const TPMA_NV_AUTHREAD: u32 = 0x40000;
@@ -44,10 +46,11 @@ const TPMA_NV_OWNERREAD: u32 = 0x20000;
 const TPMA_NV_WRITEDEFINE: u32 = 0x2000;
 
 // For ECC follow "TCG EK Credential Profile For TPM Family 2.0; Level 0"
-// Specification Version 2.1; Revision 13; 10 December 2018
-const TPM2_NV_INDEX_PLATFORMCERT: u32 = 0x01c08000;
+// Specification Version 2.3; Revision 2; 23 July 2020
+// Section 2.2.1.5.1
 const TPM2_NV_INDEX_ECC_SECP384R1_HI_EKCERT: u32 = 0x01c00016;
-const TPM2_NV_INDEX_ECC_SECP384R1_HI_EKTEMPLATE: u32 = 0x01c00017;
+// Section 2.2.1.5.2
+const TPM2_NV_INDEX_VTPM_CA_CERT_CHAIN: u32 = 0x01c00100;
 
 #[repr(C, packed)]
 struct Tpm2AuthBlock {
@@ -124,21 +127,40 @@ impl Tpm2EvictControlReq {
     }
 }
 
+const TPMA_OBJECT_FIXEDTPM: u32 = 0x00000002;
+const TPMA_OBJECT_FIXEDPARENT: u32 = 0x00000010;
+const TPMA_OBJECT_SENSITIVEDATAORIGIN: u32 = 0x00000020;
+const TPMA_OBJECT_USERWITHAUTH: u32 = 0x00000040;
+const TPMA_OBJECT_ADMINWITHPOLICY: u32 = 0x00000080;
+const TPMA_OBJECT_RESTRICTED: u32 = 0x00010000;
+const TPMA_OBJECT_DECRYPT: u32 = 0x00020000;
+
+///
+/// For ECC follow "TCG EK Credential Profile For TPM Family 2.0; Level 0"
+/// Specification Version 2.3; Revision 2; 23 July 2020
+/// Ek-Template for ECC NIST P384 follow B.4.6 of above spec.
+///
 fn tpm2_create_ek_ec384() -> VtpmResult {
-    let mut keyflags: u32 = 0;
     let symkeylen: u16 = 256;
-    let authpolicy_len: u16 = 32;
+    let authpolicy_len: u16 = 48;
     let tpm2_ek_handle: u32 = TPM2_EK_ECC_SECP384R1_HANDLE;
-    let authpolicy: [u8; 32] = [
-        0x83, 0x71, 0x97, 0x67, 0x44, 0x84, 0xb3, 0xf8, 0x1a, 0x90, 0xcc, 0x8d, 0x46, 0xa5, 0xd7,
-        0x24, 0xfd, 0x52, 0xd7, 0x6e, 0x06, 0x52, 0x0b, 0x64, 0xf2, 0xa1, 0xda, 0x1b, 0x33, 0x14,
-        0x69, 0xaa,
+    let authpolicy: [u8; 48] = [
+        0xb2, 0x6e, 0x7d, 0x28, 0xd1, 0x1a, 0x50, 0xbc, 0x53, 0xd8, 0x82, 0xbc, 0xf5, 0xfd, 0x3a,
+        0x1a, 0x07, 0x41, 0x48, 0xbb, 0x35, 0xd3, 0xb4, 0xe4, 0xcb, 0x1c, 0x0a, 0xd9, 0xbd, 0xe4,
+        0x19, 0xca, 0xcb, 0x47, 0xba, 0x09, 0x69, 0x96, 0x46, 0x15, 0x0f, 0x9f, 0xc0, 0x00, 0xf3,
+        0xf8, 0x0e, 0x12,
     ];
-    // curve_id = 0x0004
+
+    // curve_id = TPM_ECC_NIST_P384 (0x0004)
     let ecc_details: [u8; 8] = [0x00, 0x04, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00];
-    // keyflags: fixedTPM, fixedParent, sensitiveDatOrigin,
-    // adminWithPolicy, restricted, decrypt
-    keyflags |= 0x000300b2;
+    let keyflags = TPMA_OBJECT_FIXEDTPM
+        | TPMA_OBJECT_FIXEDPARENT
+        | TPMA_OBJECT_SENSITIVEDATAORIGIN
+        | TPMA_OBJECT_USERWITHAUTH
+        | TPMA_OBJECT_ADMINWITHPOLICY
+        | TPMA_OBJECT_RESTRICTED
+        | TPMA_OBJECT_DECRYPT;
+
     // symmetric: TPM_ALG_AES, 256bit, TPM_ALG_CFB
     let symkeydata: &[u8] = &[
         TPM2_ALG_AES.to_be_bytes(),
@@ -153,7 +175,7 @@ fn tpm2_create_ek_ec384() -> VtpmResult {
 
     let mut public: Vec<u8> = Vec::new();
     public.extend_from_slice(&TPM2_ALG_ECC.to_be_bytes());
-    public.extend_from_slice(&TPM2_ALG_SHA256.to_be_bytes());
+    public.extend_from_slice(&TPM2_ALG_SHA384.to_be_bytes());
     public.extend_from_slice(&keyflags.to_be_bytes());
     public.extend_from_slice(&authpolicy_len.to_be_bytes());
     public.extend_from_slice(&authpolicy);
@@ -197,8 +219,6 @@ fn tpm2_create_ek_ec384() -> VtpmResult {
     tpm2_evictcontrol(curr_handle, tpm2_ek_handle)
 }
 
-const TPM2_RH_OWNER: u32 = 0x40000001;
-
 fn tpm2_evictcontrol(curr_handle: u32, perm_handle: u32) -> VtpmResult {
     let hdr: Tpm2CommandHeader = Tpm2CommandHeader::new(
         TPM_ST_SESSIONS,
@@ -227,8 +247,7 @@ fn tpm2_evictcontrol(curr_handle: u32, perm_handle: u32) -> VtpmResult {
     Ok(())
 }
 
-/// Get the TPM EKpub in the TSS format (marshaled TPM2B_PUBLIC structure)
-/// TSS format e.g.: tpm2_createek -c 0x81000000 -G rsa -f tss -u /tmp/ekpub.tss
+/// Get the TPM EKpub key
 pub fn tpm2_get_ek_pub() -> Vec<u8> {
     // TPM2_CC_ReadPublic 0x00000173
     // TPM2_EK_ECC_SECP384R1_HANDLE is 0x81010016
@@ -266,9 +285,11 @@ pub fn tpm2_get_ek_pub() -> Vec<u8> {
     // x of eccpoint
     let x_offset = tpm2b_public_len - unique_len + 2;
     out_public.extend_from_slice(&tpm2b_public[x_offset..x_offset + 48]);
+
     // y of eccpoint
     let y_offset = x_offset + 48 + 2;
     out_public.extend_from_slice(&tpm2b_public[y_offset..]);
+
     // log::info!("public_key {:x} {:02x?}\n", out_public.len(), out_public);
 
     out_public.to_vec()
@@ -299,7 +320,7 @@ fn get_td_quote(data: &[u8]) -> Result<Vec<u8>, VtpmError> {
     td_quote
 }
 
-pub fn tpm2_write_cert_nvram(cert: &[u8]) -> VtpmResult {
+pub fn tpm2_write_cert_nvram(nvindex: u32, cert: &[u8]) -> VtpmResult {
     if cert.len() > usize::from(u16::MAX) {
         log::error!("ERROR: Cert size = {:#x} too big\n", { cert.len() });
         return Err(VtpmError::InvalidParameter);
@@ -312,8 +333,8 @@ pub fn tpm2_write_cert_nvram(cert: &[u8]) -> VtpmResult {
         | TPMA_NV_NO_DA
         | TPMA_NV_WRITEDEFINE;
 
-    let nvindex: u32 = TPM2_NV_INDEX_ECC_SECP384R1_HI_EKCERT;
     tpm2_nvdefine_space(nvindex, nvindex_attrs, cert.len())?;
+
     //
     // The report size might be bigger than the MAX_NV_BUFFER_SIZE (max buffer size for TPM
     // NV commands) defined in the TPM spec. For simplicity let's just assume it is at least 1024.
@@ -471,16 +492,34 @@ pub fn tpm2_provision_ek() -> VtpmResult {
         let size = size.unwrap();
         let event_log = &event_log[..size + 1];
 
-        // generate ek_cert_chain
-        let ek_cert_chain =
-            generate_ek_cert_chain(td_quote.as_slice(), event_log, ek_pub.as_slice(), &key_pair);
-        if ek_cert_chain.is_err() {
+        // first generate ca-cert
+        let ca_cert = generate_ca_cert(td_quote.as_slice(), event_log, &key_pair);
+        if ca_cert.is_err() {
+            break;
+        }
+        let ca_cert = ca_cert.unwrap();
+
+        // then generate ek-cert
+        let ek_cert = generate_ek_cert(ek_pub.as_slice(), &key_pair);
+        if ek_cert.is_err() {
+            break;
+        }
+        let ek_cert = ek_cert.unwrap();
+
+        // save ek-cert into NV
+        if tpm2_write_cert_nvram(
+            TPM2_NV_INDEX_ECC_SECP384R1_HI_EKCERT as u32,
+            ek_cert.as_slice(),
+        )
+        .is_err()
+        {
             break;
         }
 
-        // save it into NV
-        let ek_cert_chain = ek_cert_chain.unwrap();
-        if tpm2_write_cert_nvram(ek_cert_chain.as_slice()).is_err() {
+        // save ca-cert into NV
+        if tpm2_write_cert_nvram(TPM2_NV_INDEX_VTPM_CA_CERT_CHAIN as u32, ca_cert.as_slice())
+            .is_err()
+        {
             break;
         }
 
