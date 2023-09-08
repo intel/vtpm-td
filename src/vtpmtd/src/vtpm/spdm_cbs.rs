@@ -18,6 +18,7 @@ use tdx_tdcall::tdreport::{TdxReport, TD_REPORT_SIZE};
 use tpm::{
     execute_command, start_tpm,
     tpm2_digests::TPM2_SHA384_SIZE,
+    tpm2_provision::tpm2_provision_ek,
     tpm2_sys::{_TPM_Hash_Data, _TPM_Hash_End, _TPM_Hash_Start},
 };
 
@@ -75,6 +76,13 @@ pub fn gen_hcrtm_sequence(tdx_report: &[u8]) -> VtpmResult {
         _TPM_Hash_Start();
         _TPM_Hash_Data(TPM2_SHA384_SIZE as u32, ptr);
         _TPM_Hash_End();
+    }
+
+    // Generate EK and provision
+    if !GLOBAL_TPM_DATA.lock().provisioned {
+        if tpm2_provision_ek().is_ok() {
+            GLOBAL_TPM_DATA.lock().provisioned = true;
+        }
     }
 
     Ok(())
