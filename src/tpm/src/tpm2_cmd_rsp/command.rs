@@ -4,21 +4,24 @@
 
 // pub const TPM_CMD_STARTUP: [u8; _] = [0x80, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x01, 0x44, 0x00, 0x00];
 
+use alloc::slice;
+
 use super::TPM2_COMMAND_HEADER_SIZE;
 
+#[repr(C, packed)]
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Tpm2CommandHeader {
-    pub tag: u16,
-    pub param_size: u32,
-    pub command_code: u32,
+    tag: u16,
+    param_size: u32,
+    command_code: u32,
 }
 
 impl Tpm2CommandHeader {
     pub fn new(tag: u16, param_size: u32, command_code: u32) -> Tpm2CommandHeader {
         Self {
-            tag,
-            param_size,
-            command_code,
+            tag: tag.to_be(),
+            param_size: param_size.to_be(),
+            command_code: command_code.to_be(),
         }
     }
 
@@ -31,9 +34,9 @@ impl Tpm2CommandHeader {
             return None;
         }
 
-        let tag = u16::from_be_bytes([bytes[0], bytes[1]]);
-        let param_size = u32::from_be_bytes([bytes[2], bytes[3], bytes[4], bytes[5]]);
-        let command_code = u32::from_be_bytes([bytes[6], bytes[7], bytes[8], bytes[9]]);
+        let tag = u16::from_le_bytes([bytes[0], bytes[1]]);
+        let param_size = u32::from_le_bytes([bytes[2], bytes[3], bytes[4], bytes[5]]);
+        let command_code = u32::from_le_bytes([bytes[6], bytes[7], bytes[8], bytes[9]]);
 
         Some(Tpm2CommandHeader {
             tag,
@@ -42,20 +45,24 @@ impl Tpm2CommandHeader {
         })
     }
 
-    pub fn to_bytes(&self, out_buffer: &mut [u8]) -> Option<usize> {
-        if out_buffer.len() < TPM2_COMMAND_HEADER_SIZE {
-            log::error!("Invalid size({:?}) of input buffer\n", out_buffer.len());
-            return None;
+    pub fn as_slice(&self) -> &[u8] {
+        unsafe {
+            slice::from_raw_parts(
+                self as *const Tpm2CommandHeader as *const u8,
+                core::mem::size_of::<Tpm2CommandHeader>(),
+            )
         }
+    }
 
-        let tag = self.tag.to_be_bytes();
-        let param_size = self.param_size.to_be_bytes();
-        let command_code = self.command_code.to_be_bytes();
+    pub fn set_size(&mut self, size: u32) {
+        self.param_size = size.to_be();
+    }
 
-        out_buffer[..2].copy_from_slice(&tag);
-        out_buffer[2..6].copy_from_slice(&param_size);
-        out_buffer[6..TPM2_COMMAND_HEADER_SIZE].copy_from_slice(&command_code);
+    pub fn get_command_code(&self) -> u32 {
+        self.command_code.to_be()
+    }
 
-        Some(TPM2_COMMAND_HEADER_SIZE)
+    pub fn header_size() -> u32 {
+        core::mem::size_of::<Self>() as u32
     }
 }
