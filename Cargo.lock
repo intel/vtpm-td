@@ -9,6 +9,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
 
 [[package]]
+name = "attestation"
+version = "0.1.0"
+dependencies = [
+ "crypto",
+ "der 0.5.1",
+ "spin 0.9.8",
+ "td-payload",
+ "tdx-tdcall",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -209,6 +220,16 @@ name = "either"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcaabb2fef8c910e7f4c7ce9f67a1283a1715879a7c230ca9d6d1ae31f16d91"
+
+[[package]]
+name = "eventlog"
+version = "0.1.0"
+dependencies = [
+ "cc-measurement",
+ "td-payload",
+ "td-shim",
+ "zerocopy",
+]
 
 [[package]]
 name = "generic-array"
@@ -729,11 +750,16 @@ checksum = "7300fbefb4dadc1af235a9cef3737cea692a9d97e1b9cbcd4ebdae6f8868e6fb"
 name = "tpm"
 version = "0.1.0"
 dependencies = [
+ "attestation",
+ "crypto",
+ "eventlog",
  "global",
  "lazy_static",
  "log",
+ "ring",
  "rust-tpm-20-ref",
  "spin 0.9.8",
+ "tdx-tdcall",
  "time",
  "x86_64",
 ]
@@ -779,16 +805,17 @@ name = "vtpmtd"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "attestation",
  "bitfield",
  "bitflags",
  "bitmap-allocator",
  "byteorder",
  "bytes",
- "cc-measurement",
  "codec",
  "conquer-once",
  "crypto",
  "der 0.5.1",
+ "eventlog",
  "global",
  "lazy_static",
  "linked_list_allocator",
