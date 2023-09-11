@@ -119,8 +119,4 @@ impl SpdmDeviceIo for VtpmIoTransport {
     fn flush_all(&mut self) -> SpdmResult {
         Ok(())
     }
-
-    fn as_any(&mut self) -> &mut dyn core::any::Any {
-        todo!()
-    }
 }
