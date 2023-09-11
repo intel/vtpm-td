@@ -11,6 +11,6 @@ der = {version = "0.5.1", features = ["oid", "alloc", "derive"]}
 global = { path = "../global" }
 log = "0.4.13"
 ring = { version = "0.16.20" }
-spdmlib = { path = "../../deps/rust-spdm/spdmlib", default-features = false, features = ["spdm-ring", "downcast", "mut-auth"]}
+spdmlib = { path = "../../deps/rust-spdm/spdmlib", default-features = false, features = ["spdm-ring", "mut-auth"]}
 tdx-tdcall = { path = "../../deps/td-shim/tdx-tdcall" }
 zerocopy = "0.6.1"
