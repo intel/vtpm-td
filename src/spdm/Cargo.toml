@@ -18,7 +18,7 @@ x86_64 = "0.14.9"
 codec = { path = "../../deps/rust-spdm/codec" }
 protocol = { path = "../protocol" }
 tdtunnel = { path = "../tdtunnel" }
-spdmlib = { path = "../../deps/rust-spdm/spdmlib", default-features = false, features = ["spdm-ring", "downcast", "mut-auth"]}
+spdmlib = { path = "../../deps/rust-spdm/spdmlib", default-features = false, features = ["spdm-ring", "mut-auth"]}
 td-exception = { path = "../../deps/td-shim/td-exception", features = ["tdx"]}
 tdx-tdcall = { path = "../../deps/td-shim/tdx-tdcall" }
 td-payload = { path = "../../deps/td-shim/td-payload", features = ["tdx"] }
