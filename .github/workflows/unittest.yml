@@ -60,3 +60,9 @@ jobs:
           pushd src/global
           cargo test
           popd
+
+      - name: Unit Test for src/spdm
+        run: |
+          pushd src/spdm
+          cargo test
+          popd
