@@ -6,7 +6,9 @@ use ::crypto::resolve::{generate_certificate, generate_ecdsa_keypairs};
 use alloc::vec::Vec;
 use byteorder::{ByteOrder, LittleEndian};
 use eventlog::eventlog::{event_log_size, get_event_log};
-use global::{sensitive_data_cleanup, TdVtpmOperation, GLOBAL_SPDM_DATA, GLOBAL_TPM_DATA};
+use global::{
+    sensitive_data_cleanup, TdVtpmOperation, VtpmResult, GLOBAL_SPDM_DATA, GLOBAL_TPM_DATA,
+};
 use ring::{
     digest::digest,
     pkcs8::{self, Document},
@@ -35,7 +37,8 @@ use spdmlib::{
     },
     responder::{self, ResponderContext},
 };
-use tpm::{start_tpm, terminate_tpm};
+use td_payload::arch::cet::init_cet_shstk;
+use tpm::{start_tpm, terminate_tpm, tpm2_provision::tpm2_provision_ek};
 
 fn make_config_info() -> common::SpdmConfigInfo {
     common::SpdmConfigInfo {
@@ -167,9 +170,24 @@ impl SpdmConnection {
         GLOBAL_SPDM_DATA.lock().clean_pkcs8();
     }
 
+    fn init_tpm(&self) -> VtpmResult {
+        self.startup_tpm();
+        // Generate EK and provision
+        tpm2_provision_ek()?;
+        GLOBAL_TPM_DATA.lock().provisioned = true;
+        self.shutdown_tpm();
+
+        Ok(())
+    }
+
     pub fn run(&mut self) {
         let mut device_io = VtpmIoTransport::new(self.vtpm_id);
         let mut vtpm_transport_encap = VtpmTransportEncap::default();
+
+        if self.init_tpm().is_err() {
+            log::error!("Failed to initialize TPM chip!\n");
+            return;
+        }
 
         let provision_info = make_provision_info();
         if provision_info.is_none() {
