@@ -45,6 +45,8 @@ const TPMA_NV_PPREAD: u32 = 0x10000;
 const TPMA_NV_OWNERREAD: u32 = 0x20000;
 const TPMA_NV_WRITEDEFINE: u32 = 0x2000;
 
+const TPM_ECC_NIST_P384: u8 = 0x04;
+
 // For ECC follow "TCG EK Credential Profile For TPM Family 2.0; Level 0"
 // Specification Version 2.3; Revision 2; 23 July 2020
 // Section 2.2.1.5.1
@@ -151,7 +153,7 @@ fn tpm2_create_ek_ec384() -> VtpmResult {
         0xf8, 0x0e, 0x12,
     ];
 
-    // curve_id = TPM_ECC_NIST_P384 (0x0004)
+    // curve_id = TPM_ECC_NIST_P384
     let ecc_details: [u8; 8] = [0x00, 0x04, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00];
     let keyflags = TPMA_OBJECT_FIXEDTPM
         | TPMA_OBJECT_FIXEDPARENT
@@ -281,6 +283,8 @@ pub fn tpm2_get_ek_pub() -> Vec<u8> {
     }
 
     let mut out_public: Vec<u8> = Vec::new();
+
+    out_public.extend_from_slice(&TPM_ECC_NIST_P384.to_be_bytes());
 
     // x of eccpoint
     let x_offset = tpm2b_public_len - unique_len + 2;

@@ -16,8 +16,6 @@ use crate::tpm2_cmd_rsp::{
     TPM2_RESPONSE_HEADER_SIZE, TPM_CC_SHUTDOWN, TPM_SHUTDOWN_CMD,
 };
 
-use self::tpm2_provision::tpm2_provision_ek;
-
 extern crate alloc;
 
 pub mod cty;

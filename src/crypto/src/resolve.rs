@@ -19,8 +19,10 @@ use tdx_tdcall::tdreport::TD_REPORT_SIZE;
 
 pub const BASIC_CONSTRAINTS: ObjectIdentifier = ObjectIdentifier::new("2.5.29.19");
 pub const SUBJECT_KEY_IDENTIFIER: ObjectIdentifier = ObjectIdentifier::new("2.5.29.14");
+pub const KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new("2.5.29.15");
 pub const AUTHORITY_KEY_IDENTIFIER: ObjectIdentifier = ObjectIdentifier::new("2.5.29.35");
 pub const EXTENDED_KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new("2.5.29.37");
+
 pub const VTPMTD_EXTENDED_KEY_USAGE: ObjectIdentifier =
     ObjectIdentifier::new("2.16.840.1.113741.1.5.5.2.1");
 pub const EXTNID_VTPMTD_REPORT: ObjectIdentifier =

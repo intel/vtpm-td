@@ -109,17 +109,17 @@ impl<'a> Certificate<'a> {
         let mut country_name = SetOfVec::new();
         country_name.add(DistinguishedName {
             attribute_type: ObjectIdentifier::new("2.5.4.6"),
-            value: PrintableString::new("XX")?.try_into().unwrap(),
+            value: PrintableString::new("US")?.try_into().unwrap(),
         })?;
         let mut locality_name = SetOfVec::new();
         locality_name.add(DistinguishedName {
             attribute_type: ObjectIdentifier::new("2.5.4.7"),
-            value: Utf8String::new("Default City")?.try_into().unwrap(),
+            value: Utf8String::new("OR")?.try_into().unwrap(),
         })?;
         let mut organization_name = SetOfVec::new();
         organization_name.add(DistinguishedName {
             attribute_type: ObjectIdentifier::new("2.5.4.10"),
-            value: Utf8String::new("Default Company Ltd")?.try_into().unwrap(),
+            value: Utf8String::new("Intel")?.try_into().unwrap(),
         })?;
 
         let issuer = vec![country_name, locality_name, organization_name];
@@ -366,8 +366,8 @@ impl<'a> Sequence<'a> for AlgorithmIdentifier<'a> {
 #[allow(non_snake_case)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DistinguishedName<'a> {
-    attribute_type: ObjectIdentifier,
-    value: Any<'a>,
+    pub(crate) attribute_type: ObjectIdentifier,
+    pub(crate) value: Any<'a>,
 }
 
 impl<'a> DerOrd for DistinguishedName<'a> {
