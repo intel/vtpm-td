@@ -7,15 +7,15 @@
 use crate::{
     execute_command,
     tpm2_cmd_rsp::{
-        command::Tpm2CommandHeader, shutdown::tpm2_shutdown, startup::tpm2_startup,
-        TPM2_CC_CREATEPRIMARY, TPM2_CC_EVICTCONTROL, TPM2_CC_NV_DEFINESPACE, TPM2_CC_NV_WRITE,
-        TPM2_COMMAND_HEADER_SIZE, TPM_RC_SUCCESS, TPM_ST_SESSIONS,
+        command::Tpm2CommandHeader, getcaps::tpm2_get_caps, shutdown::tpm2_shutdown,
+        startup::tpm2_startup, TPM2_CC_CREATEPRIMARY, TPM2_CC_EVICTCONTROL, TPM2_CC_NV_DEFINESPACE,
+        TPM2_CC_NV_WRITE, TPM2_COMMAND_HEADER_SIZE, TPM_RC_SUCCESS, TPM_ST_SESSIONS,
     },
 };
 use alloc::{slice, vec::Vec};
 use attestation::get_quote;
 use crypto::{
-    ek_cert::{self, generate_ca_cert, generate_ek_cert},
+    ek_cert::{generate_ca_cert, generate_ek_cert},
     resolve::{generate_ecdsa_keypairs, ResolveError},
 };
 use eventlog::eventlog::{event_log_size, get_event_log};
@@ -46,6 +46,9 @@ const TPMA_NV_OWNERREAD: u32 = 0x20000;
 const TPMA_NV_WRITEDEFINE: u32 = 0x2000;
 
 const TPM_ECC_NIST_P384: u8 = 0x04;
+
+const TPM_PT_NV_INDEX_MAX: u32 = 0x117;
+const TPM_PT_NV_BUFFER_MAX: u32 = 0x12c;
 
 // For ECC follow "TCG EK Credential Profile For TPM Family 2.0; Level 0"
 // Specification Version 2.3; Revision 2; 23 July 2020
@@ -324,7 +327,12 @@ fn get_td_quote(data: &[u8]) -> Result<Vec<u8>, VtpmError> {
     td_quote
 }
 
-pub fn tpm2_write_cert_nvram(nvindex: u32, cert: &[u8]) -> VtpmResult {
+pub fn tpm2_write_cert_nvram(
+    nvindex: u32,
+    cert: &[u8],
+    max_nv_index_size: u16,
+    max_nv_buffer: u32,
+) -> VtpmResult {
     if cert.len() > usize::from(u16::MAX) {
         log::error!("ERROR: Cert size = {:#x} too big\n", { cert.len() });
         return Err(VtpmError::InvalidParameter);
@@ -337,30 +345,54 @@ pub fn tpm2_write_cert_nvram(nvindex: u32, cert: &[u8]) -> VtpmResult {
         | TPMA_NV_NO_DA
         | TPMA_NV_WRITEDEFINE;
 
-    tpm2_nvdefine_space(nvindex, nvindex_attrs, cert.len())?;
+    let cert_len: u16 = cert.len() as u16;
 
-    //
-    // The report size might be bigger than the MAX_NV_BUFFER_SIZE (max buffer size for TPM
-    // NV commands) defined in the TPM spec. For simplicity let's just assume it is at least 1024.
-    //
     let mut start: u16 = 0;
     let mut end: u16 = 0;
+    let mut data_len: u16 = 0;
+    let mut left: u16 = cert_len;
+    let mut index: u32 = nvindex;
+    let mut nv_space_size: u16 = 0;
+
     loop {
-        end = start + 1024;
-        if usize::from(end) > cert.len() {
-            end = cert.len().try_into().unwrap();
-        }
-        if start >= end {
+        if left == 0 {
             break;
         }
-        tpm2_nv_write(nvindex, start, &cert[start as usize..end as usize])?;
-        start = end;
+
+        if left > max_nv_index_size {
+            nv_space_size = max_nv_index_size;
+        } else {
+            nv_space_size = left;
+        }
+        data_len = nv_space_size;
+
+        // log::info!(
+        //     "nvdefine: index={0:x?}, nv_size={1:x?}\n",
+        //     index,
+        //     nv_space_size
+        // );
+        tpm2_nvdefine_space(index, nvindex_attrs, nv_space_size as usize)?;
+
+        start = cert_len - left;
+        end = start + data_len;
+
+        // log::info!(
+        //     "  nv_write: index={0:x?}, start={1:x?}, end={2:x?}\n",
+        //     index,
+        //     start,
+        //     end
+        // );
+        tpm2_nv_write(index, &cert[start as usize..end as usize], max_nv_buffer)?;
+
+        left -= data_len;
+        index += 1;
     }
-    log::info!(
-        "INFO: Cert ({} bytes) written to the TPM NV index {:#x}\n",
-        { cert.len() },
-        nvindex
-    );
+
+    // log::info!(
+    //     "INFO: Cert ({} bytes) written to the TPM NV index {:#x}\n",
+    //     { cert.len() },
+    //     nvindex
+    // );
 
     Ok(())
 }
@@ -402,7 +434,7 @@ fn tpm2_nvdefine_space(nvindex: u32, nvindex_attrs: u32, data_len: usize) -> Vtp
     Ok(())
 }
 
-fn tpm2_nv_write(nvindex: u32, offset: u16, data: &[u8]) -> VtpmResult {
+fn tpm2_nv_write_chunk(nvindex: u32, offset: u16, data: &[u8]) -> VtpmResult {
     let mut hdr: Tpm2CommandHeader = Tpm2CommandHeader::new(TPM_ST_SESSIONS, 0, TPM2_CC_NV_WRITE);
     let authblock: Tpm2AuthBlock = Tpm2AuthBlock::new(TPM2_RS_PW, 0, 0, 0);
 
@@ -432,6 +464,37 @@ fn tpm2_nv_write(nvindex: u32, offset: u16, data: &[u8]) -> VtpmResult {
     Ok(())
 }
 
+fn tpm2_nv_write(nvindex: u32, data: &[u8], max_nv_buffer: u32) -> VtpmResult {
+    let mut start: u16 = 0;
+    let mut end: u16 = 0;
+    let data_len = data.len() as u16;
+
+    if data_len == 0 {
+        return Ok(());
+    }
+
+    loop {
+        end = start + max_nv_buffer as u16;
+        if end > data_len {
+            end = data_len;
+        }
+
+        if start >= end {
+            break;
+        }
+        // log::info!(
+        //     "    nvwrite_chunk: index={0:x?}, start={1:x?}, end={2:x?}\n",
+        //     nvindex,
+        //     start,
+        //     end
+        // );
+        tpm2_nv_write_chunk(nvindex, start, &data[start as usize..end as usize])?;
+        start += max_nv_buffer as u16;
+    }
+
+    Ok(())
+}
+
 fn create_ecdsa_keypairs() -> Option<EcdsaKeyPair> {
     let pkcs8 = generate_ecdsa_keypairs();
     if pkcs8.is_none() {
@@ -451,6 +514,28 @@ fn create_ecdsa_keypairs() -> Option<EcdsaKeyPair> {
     Some(key_pair.unwrap())
 }
 
+fn get_tpm2_caps() -> Option<(u32, u32)> {
+    let tpm2_caps = tpm2_get_caps();
+    if tpm2_caps.is_none() {
+        return None;
+    }
+    let tpm2_caps = tpm2_caps.unwrap();
+    let max_nv_index_size = tpm2_caps.get(&TPM_PT_NV_INDEX_MAX);
+    if max_nv_index_size.is_none() {
+        return None;
+    }
+    let max_nv_index_size = *max_nv_index_size.unwrap();
+    let max_nv_buffer_size = tpm2_caps.get(&TPM_PT_NV_BUFFER_MAX);
+    if max_nv_buffer_size.is_none() {
+        return None;
+    }
+    let max_nv_buffer_size = *max_nv_buffer_size.unwrap();
+
+    // log::info!("max_nv_index_size=0x{0:x?}, max_nv_buffer_size=0x{1:x?}\n", max_nv_index_size, max_nv_buffer_size);
+
+    Some((max_nv_index_size, max_nv_buffer_size))
+}
+
 pub fn tpm2_provision_ek() -> VtpmResult {
     let mut tpm2_started = false;
     let mut ek_provisioned = false;
@@ -461,6 +546,13 @@ pub fn tpm2_provision_ek() -> VtpmResult {
             break;
         }
         tpm2_started = true;
+
+        // get caps
+        let caps = get_tpm2_caps();
+        if caps.is_none() {
+            break;
+        }
+        let (max_nv_index_size, max_nv_buffer_size) = caps.unwrap();
 
         // then Create ek_ec384
         if tpm2_create_ek_ec384().is_err() {
@@ -511,9 +603,20 @@ pub fn tpm2_provision_ek() -> VtpmResult {
         let ek_cert = ek_cert.unwrap();
 
         // save ek-cert into NV
+        if ek_cert.as_slice().len() > max_nv_index_size as usize {
+            log::error!(
+                "ek-cert size ({0:x?}) is too big to be in a single nv index({1:x?}).\n",
+                ek_cert.as_slice().len(),
+                max_nv_index_size
+            );
+            break;
+        }
+
         if tpm2_write_cert_nvram(
             TPM2_NV_INDEX_ECC_SECP384R1_HI_EKCERT as u32,
             ek_cert.as_slice(),
+            max_nv_index_size as u16,
+            max_nv_buffer_size,
         )
         .is_err()
         {
@@ -521,8 +624,13 @@ pub fn tpm2_provision_ek() -> VtpmResult {
         }
 
         // save ca-cert into NV
-        if tpm2_write_cert_nvram(TPM2_NV_INDEX_VTPM_CA_CERT_CHAIN as u32, ca_cert.as_slice())
-            .is_err()
+        if tpm2_write_cert_nvram(
+            TPM2_NV_INDEX_VTPM_CA_CERT_CHAIN as u32,
+            ca_cert.as_slice(),
+            max_nv_index_size as u16,
+            max_nv_buffer_size,
+        )
+        .is_err()
         {
             break;
         }
