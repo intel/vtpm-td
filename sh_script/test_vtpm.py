@@ -409,31 +409,17 @@ def test_config_A_vtpm_simple_attestation_with_tpm2_tools():
         LOG.info("Creating the EK and AIK")
         cmd0_list = [
             f'tpm2_createek \
-                --ek-context rsa_ek.ctx \
-                --key-algorithm rsa \
-                --public rsa_ek.pub',
-            f'tpm2_createak --ek-context rsa_ek.ctx \
-                --ak-context rsa_ak.ctx \
-                --key-algorithm rsa \
+                --ek-context ecc_ek.ctx \
+                --key-algorithm ecc \
+                --public ecc_ek.pub',
+            f'tpm2_createak --ek-context ecc_ek.ctx \
+                --ak-context ecc_ak.ctx \
+                --key-algorithm ecc \
                 --hash-algorithm sha256 \
-                --signing-algorithm rsassa \
-                --public rsa_ak.pub --private rsa_ak.priv --ak-name rsa_ak.name'
+                --signing-algorithm ecdsa \
+                --public ecc_ak.pub --private ecc_ak.priv --ak-name ecc_ak.name'
         ] 
         for cmd in cmd0_list:
-            LOG.info(cmd)
-            runner = ctx.exec_ssh_command(cmd)
-            assert runner[1] == "", "Failed to execute remote command"
-        
-        # EK WA
-        LOG.info("EK provision WA") 
-        cmd1_list = [
-            # f'openssl genrsa -out ek.key 2048',
-            # f'openssl req -new-key ek.key -out ek.csr',
-            # f'openssl x509 -req -days 365 -in ek.csr -signkey ek.key -out ek.crt',
-            f'tpm2_nvdefine 0x01c00002 -C o -a "ownerread|policyread|policywrite|ownerwrite|authread|authwrite"',
-            f'tpm2_nvwrite 0x01c00002  -C o -i ek.crt'
-        ] 
-        for cmd in cmd1_list:
             LOG.info(cmd)
             runner = ctx.exec_ssh_command(cmd)
             assert runner[1] == "", "Failed to execute remote command"
@@ -442,10 +428,10 @@ def test_config_A_vtpm_simple_attestation_with_tpm2_tools():
         LOG.info("Retrieving EK and send to Provacy-CA") 
         cmd2_script = '''
                   #!/bin/bash\n
-                  RSA_EK_CERT_NV_INDEX=0x01C00002\n
-                  NV_SIZE=`tpm2_nvreadpublic $RSA_EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
-                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output rsa_ek_cert.bin $RSA_EK_CERT_NV_INDEX\n
-                  sed 's/-/+/g;s/_/\//g;s/%3D/=/g;s/^{.*certificate":"//g;s/"}$//g;' rsa_ek_cert.bin | base64 --decode > rsa_ek_cert.bin'''
+                  ECC_EK_CERT_NV_INDEX=0x01C00016\n
+                  NV_SIZE=`tpm2_nvreadpublic $ECC_EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ecc_ek_cert.bin $ECC_EK_CERT_NV_INDEX\n
+                  sed 's/-/+/g;s/_/\//g;s/%3D/=/g;s/^{.*certificate":"//g;s/"}$//g;' ecc_ek_cert.bin | base64 --decode > ecc_ek_cert.bin'''
         cmd2_list = [
             f'echo {cmd2_script} > cmd2.sh',
             f'bash cmd2.sh'
@@ -461,14 +447,14 @@ def test_config_A_vtpm_simple_attestation_with_tpm2_tools():
         LOG.info("Verify AIK is bound to the EK") 
         cmd3_script = '''
                 #!/bin/bash\n
-                file_size=`stat --printf="%s" rsa_ak.name`\n
-                loaded_key_name=`cat rsa_ak.name | xxd -p -c $file_size`\n
+                file_size=`stat --printf="%s" ecc_ak.name`\n
+                loaded_key_name=`cat ecc_ak.name | xxd -p -c $file_size`\n
                 echo "this is my secret" > file_input.data\n
-                tpm2_makecredential --tcti none --encryption-key rsa_ek.pub --secret file_input.data --name $loaded_key_name --credential-blob cred.out\n
+                tpm2_makecredential --tcti none --encryption-key ecc_ek.pub --secret file_input.data --name $loaded_key_name --credential-blob cred.out\n
                 tpm2_startauthsession --policy-session --session session.ctx\n
                 TPM2_RH_ENDORSEMENT=0x4000000B\n
                 tpm2_policysecret -S session.ctx -c $TPM2_RH_ENDORSEMENT\n
-                tpm2_activatecredential --credentialedkey-context rsa_ak.ctx --credentialkey-context rsa_ek.ctx --credential-blob cred.out --certinfo-data actcred.out --credentialkey-auth "session:session.ctx"\n
+                tpm2_activatecredential --credentialedkey-context ecc_ak.ctx --credentialkey-context ecc_ek.ctx --credential-blob cred.out --certinfo-data actcred.out --credentialkey-auth "session:session.ctx"\n
                 tpm2_flushcontext session.ctx'''
         cmd3_list = [
             f'echo {cmd3_script} > cmd3.sh',
@@ -488,7 +474,7 @@ def test_config_A_vtpm_simple_attestation_with_tpm2_tools():
         cmd4_list = [
             f'echo "12345678" > SERVICE_PROVIDER_NONCE',
             f'tpm2_quote \
-                --key-context rsa_ak.ctx \
+                --key-context ecc_ak.ctx \
                 --pcr-list sha256:0,1,2 \
                 --message pcr_quote.plain \
                 --signature pcr_quote.signature \
@@ -496,7 +482,7 @@ def test_config_A_vtpm_simple_attestation_with_tpm2_tools():
                 --hash-algorithm sha256 \
                 --pcr pcr.bin',
             f'tpm2_checkquote \
-                --public rsa_ak.pub \
+                --public ecc_ak.pub \
                 --message pcr_quote.plain \
                 --signature pcr_quote.signature \
                 --qualification SERVICE_PROVIDER_NONCE \
@@ -758,31 +744,17 @@ def test_config_B_no_sb_vtpm_simple_attestation_with_tpm2_tools():
         LOG.info("Creating the EK and AIK")
         cmd0_list = [
             f'tpm2_createek \
-                --ek-context rsa_ek.ctx \
-                --key-algorithm rsa \
-                --public rsa_ek.pub',
-            f'tpm2_createak --ek-context rsa_ek.ctx \
-                --ak-context rsa_ak.ctx \
-                --key-algorithm rsa \
+                --ek-context ecc_ek.ctx \
+                --key-algorithm ecc \
+                --public ecc_ek.pub',
+            f'tpm2_createak --ek-context ecc_ek.ctx \
+                --ak-context ecc_ak.ctx \
+                --key-algorithm ecc \
                 --hash-algorithm sha256 \
-                --signing-algorithm rsassa \
-                --public rsa_ak.pub --private rsa_ak.priv --ak-name rsa_ak.name'
+                --signing-algorithm ecdsa \
+                --public ecc_ak.pub --private ecc_ak.priv --ak-name ecc_ak.name'
         ] 
         for cmd in cmd0_list:
-            LOG.info(cmd)
-            runner = ctx.exec_ssh_command(cmd)
-            assert runner[1] == "", "Failed to execute remote command"
-        
-        # EK WA
-        LOG.info("EK provision WA") 
-        cmd1_list = [
-            # f'openssl genrsa -out ek.key 2048',
-            # f'openssl req -new-key ek.key -out ek.csr',
-            # f'openssl x509 -req -days 365 -in ek.csr -signkey ek.key -out ek.crt',
-            f'tpm2_nvdefine 0x01c00002 -C o -a "ownerread|policyread|policywrite|ownerwrite|authread|authwrite"',
-            f'tpm2_nvwrite 0x01c00002  -C o -i ek.crt'
-        ] 
-        for cmd in cmd1_list:
             LOG.info(cmd)
             runner = ctx.exec_ssh_command(cmd)
             assert runner[1] == "", "Failed to execute remote command"
@@ -791,10 +763,10 @@ def test_config_B_no_sb_vtpm_simple_attestation_with_tpm2_tools():
         LOG.info("Retrieving EK and send to Provacy-CA") 
         cmd2_script = '''
                   #!/bin/bash\n
-                  RSA_EK_CERT_NV_INDEX=0x01C00002\n
-                  NV_SIZE=`tpm2_nvreadpublic $RSA_EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
-                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output rsa_ek_cert.bin $RSA_EK_CERT_NV_INDEX\n
-                  sed 's/-/+/g;s/_/\//g;s/%3D/=/g;s/^{.*certificate":"//g;s/"}$//g;' rsa_ek_cert.bin | base64 --decode > rsa_ek_cert.bin'''
+                  ECC_EK_CERT_NV_INDEX=0x01C00016\n
+                  NV_SIZE=`tpm2_nvreadpublic $ECC_EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ecc_ek_cert.bin $ECC_EK_CERT_NV_INDEX\n
+                  sed 's/-/+/g;s/_/\//g;s/%3D/=/g;s/^{.*certificate":"//g;s/"}$//g;' ecc_ek_cert.bin | base64 --decode > ecc_ek_cert.bin'''
         cmd2_list = [
             f'echo {cmd2_script} > cmd2.sh',
             f'bash cmd2.sh'
@@ -810,14 +782,14 @@ def test_config_B_no_sb_vtpm_simple_attestation_with_tpm2_tools():
         LOG.info("Verify AIK is bound to the EK") 
         cmd3_script = '''
                 #!/bin/bash\n
-                file_size=`stat --printf="%s" rsa_ak.name`\n
-                loaded_key_name=`cat rsa_ak.name | xxd -p -c $file_size`\n
+                file_size=`stat --printf="%s" ecc_ak.name`\n
+                loaded_key_name=`cat ecc_ak.name | xxd -p -c $file_size`\n
                 echo "this is my secret" > file_input.data\n
-                tpm2_makecredential --tcti none --encryption-key rsa_ek.pub --secret file_input.data --name $loaded_key_name --credential-blob cred.out\n
+                tpm2_makecredential --tcti none --encryption-key ecc_ek.pub --secret file_input.data --name $loaded_key_name --credential-blob cred.out\n
                 tpm2_startauthsession --policy-session --session session.ctx\n
                 TPM2_RH_ENDORSEMENT=0x4000000B\n
                 tpm2_policysecret -S session.ctx -c $TPM2_RH_ENDORSEMENT\n
-                tpm2_activatecredential --credentialedkey-context rsa_ak.ctx --credentialkey-context rsa_ek.ctx --credential-blob cred.out --certinfo-data actcred.out --credentialkey-auth "session:session.ctx"\n
+                tpm2_activatecredential --credentialedkey-context ecc_ak.ctx --credentialkey-context ecc_ek.ctx --credential-blob cred.out --certinfo-data actcred.out --credentialkey-auth "session:session.ctx"\n
                 tpm2_flushcontext session.ctx'''
         cmd3_list = [
             f'echo {cmd3_script} > cmd3.sh',
@@ -837,7 +809,7 @@ def test_config_B_no_sb_vtpm_simple_attestation_with_tpm2_tools():
         cmd4_list = [
             f'echo "12345678" > SERVICE_PROVIDER_NONCE',
             f'tpm2_quote \
-                --key-context rsa_ak.ctx \
+                --key-context ecc_ak.ctx \
                 --pcr-list sha256:0,1,2 \
                 --message pcr_quote.plain \
                 --signature pcr_quote.signature \
@@ -845,7 +817,7 @@ def test_config_B_no_sb_vtpm_simple_attestation_with_tpm2_tools():
                 --hash-algorithm sha256 \
                 --pcr pcr.bin',
             f'tpm2_checkquote \
-                --public rsa_ak.pub \
+                --public ecc_ak.pub \
                 --message pcr_quote.plain \
                 --signature pcr_quote.signature \
                 --qualification SERVICE_PROVIDER_NONCE \
@@ -1107,31 +1079,17 @@ def test_config_B_sb_vtpm_simple_attestation_with_tpm2_tools():
         LOG.info("Creating the EK and AIK")
         cmd0_list = [
             f'tpm2_createek \
-                --ek-context rsa_ek.ctx \
-                --key-algorithm rsa \
-                --public rsa_ek.pub',
-            f'tpm2_createak --ek-context rsa_ek.ctx \
-                --ak-context rsa_ak.ctx \
-                --key-algorithm rsa \
+                --ek-context ecc_ek.ctx \
+                --key-algorithm ecc \
+                --public ecc_ek.pub',
+            f'tpm2_createak --ek-context ecc_ek.ctx \
+                --ak-context ecc_ak.ctx \
+                --key-algorithm ecc \
                 --hash-algorithm sha256 \
-                --signing-algorithm rsassa \
-                --public rsa_ak.pub --private rsa_ak.priv --ak-name rsa_ak.name'
+                --signing-algorithm ecdsa \
+                --public ecc_ak.pub --private ecc_ak.priv --ak-name ecc_ak.name'
         ] 
         for cmd in cmd0_list:
-            LOG.info(cmd)
-            runner = ctx.exec_ssh_command(cmd)
-            assert runner[1] == "", "Failed to execute remote command"
-        
-        # EK WA
-        LOG.info("EK provision WA") 
-        cmd1_list = [
-            # f'openssl genrsa -out ek.key 2048',
-            # f'openssl req -new-key ek.key -out ek.csr',
-            # f'openssl x509 -req -days 365 -in ek.csr -signkey ek.key -out ek.crt',
-            f'tpm2_nvdefine 0x01c00002 -C o -a "ownerread|policyread|policywrite|ownerwrite|authread|authwrite"',
-            f'tpm2_nvwrite 0x01c00002  -C o -i ek.crt'
-        ] 
-        for cmd in cmd1_list:
             LOG.info(cmd)
             runner = ctx.exec_ssh_command(cmd)
             assert runner[1] == "", "Failed to execute remote command"
@@ -1140,10 +1098,10 @@ def test_config_B_sb_vtpm_simple_attestation_with_tpm2_tools():
         LOG.info("Retrieving EK and send to Provacy-CA") 
         cmd2_script = '''
                   #!/bin/bash\n
-                  RSA_EK_CERT_NV_INDEX=0x01C00002\n
-                  NV_SIZE=`tpm2_nvreadpublic $RSA_EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
-                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output rsa_ek_cert.bin $RSA_EK_CERT_NV_INDEX\n
-                  sed 's/-/+/g;s/_/\//g;s/%3D/=/g;s/^{.*certificate":"//g;s/"}$//g;' rsa_ek_cert.bin | base64 --decode > rsa_ek_cert.bin'''
+                  ECC_EK_CERT_NV_INDEX=0x01C00016\n
+                  NV_SIZE=`tpm2_nvreadpublic $ECC_EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ecc_ek_cert.bin $ECC_EK_CERT_NV_INDEX\n
+                  sed 's/-/+/g;s/_/\//g;s/%3D/=/g;s/^{.*certificate":"//g;s/"}$//g;' ecc_ek_cert.bin | base64 --decode > ecc_ek_cert.bin'''
         cmd2_list = [
             f'echo {cmd2_script} > cmd2.sh',
             f'bash cmd2.sh'
@@ -1159,14 +1117,14 @@ def test_config_B_sb_vtpm_simple_attestation_with_tpm2_tools():
         LOG.info("Verify AIK is bound to the EK") 
         cmd3_script = '''
                 #!/bin/bash\n
-                file_size=`stat --printf="%s" rsa_ak.name`\n
-                loaded_key_name=`cat rsa_ak.name | xxd -p -c $file_size`\n
+                file_size=`stat --printf="%s" ecc_ak.name`\n
+                loaded_key_name=`cat ecc_ak.name | xxd -p -c $file_size`\n
                 echo "this is my secret" > file_input.data\n
-                tpm2_makecredential --tcti none --encryption-key rsa_ek.pub --secret file_input.data --name $loaded_key_name --credential-blob cred.out\n
+                tpm2_makecredential --tcti none --encryption-key ecc_ek.pub --secret file_input.data --name $loaded_key_name --credential-blob cred.out\n
                 tpm2_startauthsession --policy-session --session session.ctx\n
                 TPM2_RH_ENDORSEMENT=0x4000000B\n
                 tpm2_policysecret -S session.ctx -c $TPM2_RH_ENDORSEMENT\n
-                tpm2_activatecredential --credentialedkey-context rsa_ak.ctx --credentialkey-context rsa_ek.ctx --credential-blob cred.out --certinfo-data actcred.out --credentialkey-auth "session:session.ctx"\n
+                tpm2_activatecredential --credentialedkey-context ecc_ak.ctx --credentialkey-context ecc_ek.ctx --credential-blob cred.out --certinfo-data actcred.out --credentialkey-auth "session:session.ctx"\n
                 tpm2_flushcontext session.ctx'''
         cmd3_list = [
             f'echo {cmd3_script} > cmd3.sh',
@@ -1186,7 +1144,7 @@ def test_config_B_sb_vtpm_simple_attestation_with_tpm2_tools():
         cmd4_list = [
             f'echo "12345678" > SERVICE_PROVIDER_NONCE',
             f'tpm2_quote \
-                --key-context rsa_ak.ctx \
+                --key-context ecc_ak.ctx \
                 --pcr-list sha256:0,1,2 \
                 --message pcr_quote.plain \
                 --signature pcr_quote.signature \
@@ -1194,7 +1152,7 @@ def test_config_B_sb_vtpm_simple_attestation_with_tpm2_tools():
                 --hash-algorithm sha256 \
                 --pcr pcr.bin',
             f'tpm2_checkquote \
-                --public rsa_ak.pub \
+                --public ecc_ak.pub \
                 --message pcr_quote.plain \
                 --signature pcr_quote.signature \
                 --qualification SERVICE_PROVIDER_NONCE \
