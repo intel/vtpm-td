@@ -14,7 +14,7 @@ use alloc::collections::BTreeSet;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use byteorder::{ByteOrder, LittleEndian};
-use global::{TdVtpmOperation, GLOBAL_SPDM_DATA};
+use global::{TdVtpmOperation, VtpmError, GLOBAL_SPDM_DATA, GLOBAL_TPM_DATA};
 use log::info;
 use ring::pkcs8;
 use ring::rand::SystemRandom;
@@ -26,6 +26,7 @@ use spdmlib::crypto::{cert_operation, SpdmCertOperation};
 use spdmlib::error::{SpdmStatus, SPDM_STATUS_INVALID_CERT};
 use spdmlib::protocol::SpdmVersion;
 use tpm::execute_command;
+use tpm::tpm2_ca_cert::gen_tpm2_ca_cert;
 use x86::halt;
 
 use super::spdm_connection::SpdmConnection;
@@ -60,6 +61,11 @@ pub extern "C" fn start_spdm_server() {
     }
 
     register_spdm_cert_operation();
+
+    if gen_tpm2_ca_cert().is_err() {
+        log::error!("Failed to generate tpm2 ca_cert!\n");
+        unsafe { halt() };
+    }
 
     loop {
         let received_bytes = td_tunnel.wait_for_request(&mut buffer, 0);
@@ -116,8 +122,22 @@ pub extern "C" fn start_spdm_server() {
         GLOBAL_SPDM_DATA.lock().valid = true;
 
         let mut spdm_connection: SpdmConnection = SpdmConnection::new(vtpm_id);
-        spdm_connection.run();
-        log::info!("Quit from vTPM-TD loop\n");
+        let res = spdm_connection.run();
+        if let Err(res) = res {
+            break;
+        }
+
+        let operation = GLOBAL_SPDM_DATA.lock().operation();
+        if let Ok(operation) = operation {
+            if operation == TdVtpmOperation::Destroy {
+                log::info!("Wait for another Create event.\n");
+                GLOBAL_TPM_DATA.lock().clear();
+                GLOBAL_SPDM_DATA.lock().clear();
+                continue;
+            }
+        }
+
+        log::error!("Error!!! Quit the main loop.\n");
         break;
     }
 
