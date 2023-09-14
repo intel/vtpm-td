@@ -11,7 +11,7 @@ use ring::signature::{EcdsaKeyPair, KeyPair};
 
 use crate::resolve::{
     AUTHORITY_KEY_IDENTIFIER, BASIC_CONSTRAINTS, EXTENDED_KEY_USAGE, EXTNID_VTPMTD_EVENT_LOG,
-    EXTNID_VTPMTD_QUOTE, KEY_USAGE,
+    EXTNID_VTPMTD_QUOTE, KEY_USAGE, VTPMTD_CA_EXTENDED_KEY_USAGE,
 };
 use crate::x509::{self, DistinguishedName, Extension};
 use crate::{
@@ -43,7 +43,7 @@ pub fn generate_ca_cert(
     };
 
     // extended key usage
-    let eku: alloc::vec::Vec<ObjectIdentifier> = vec![VTPMTD_EXTENDED_KEY_USAGE];
+    let eku: alloc::vec::Vec<ObjectIdentifier> = vec![VTPMTD_CA_EXTENDED_KEY_USAGE];
     let eku = eku
         .to_vec()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
