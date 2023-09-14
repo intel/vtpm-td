@@ -12,6 +12,7 @@ pub mod tpm;
 pub const VTPM_MAX_BUFFER_SIZE: usize = 0x1000;
 pub const TPM2_NV_SIZE: usize = 0x4000;
 pub const PKCS8_DOCUMENT_MAX_LEN: usize = 185;
+pub const VTPM_CA_CERT_MAX_SIZE: usize = 0x1000;
 
 use lazy_static::lazy_static;
 use spin::Mutex;
