@@ -21,6 +21,7 @@ extern crate alloc;
 pub mod cty;
 pub mod rtc;
 pub mod std_lib;
+pub mod tpm2_ca_cert;
 pub mod tpm2_cmd_rsp;
 pub mod tpm2_digests;
 pub mod tpm2_provision;
