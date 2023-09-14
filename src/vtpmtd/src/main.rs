@@ -35,9 +35,9 @@ pub extern "C" fn _start(hob: u64, payload: u64) -> ! {
     use td_payload::mm::end_of_ram;
     use td_payload::mm::layout::*;
 
-    const STACK_SIZE: usize = 0x400_0000; // 64M
-    const HEAP_SIZE: usize = 0x400_0000; // 64M
-    const PT_SIZE: usize = 0x20_0000;
+    const STACK_SIZE: usize = 0x10_0000; // 1M
+    const HEAP_SIZE: usize = 0x20_0000; // 2M
+    const PT_SIZE: usize = 0x8_0000;
 
     extern "C" {
         fn start_spdm_server();
