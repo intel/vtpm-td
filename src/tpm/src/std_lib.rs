@@ -61,7 +61,7 @@ lazy_static! {
 /// This function is unsafe
 pub unsafe extern "C" fn __fw_malloc(size: usize) -> *mut c_void {
     let addr = alloc::alloc::alloc(Layout::from_size_align_unchecked(size, 1)) as *mut c_void;
-    if addr != null_mut() {
+    if !addr.is_null() {
         MALLOC_TABLE.lock().insert(addr as usize, size);
     }
     addr
@@ -90,13 +90,13 @@ pub unsafe extern "C" fn __fw_realloc(ptr: *mut c_void, new_size: usize) -> *mut
             new_size,
         ) as *mut c_void;
 
-        if ptr_new != null_mut() {
+        if !ptr_new.is_null() {
             MALLOC_TABLE.lock().remove_entry(&(ptr as usize));
             MALLOC_TABLE.lock().insert(ptr_new as usize, new_size);
         }
 
         ptr_new
     } else {
-        return null_mut();
+        null_mut()
     }
 }
