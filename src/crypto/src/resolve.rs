@@ -25,6 +25,8 @@ pub const EXTENDED_KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new("2.5.29.3
 
 pub const VTPMTD_EXTENDED_KEY_USAGE: ObjectIdentifier =
     ObjectIdentifier::new("2.16.840.1.113741.1.5.5.2.1");
+pub const VTPMTD_CA_EXTENDED_KEY_USAGE: ObjectIdentifier =
+    ObjectIdentifier::new("2.16.840.1.113741.1.5.5.2.5");
 pub const EXTNID_VTPMTD_REPORT: ObjectIdentifier =
     ObjectIdentifier::new("2.16.840.1.113741.1.5.5.2.4");
 pub const EXTNID_VTPMTD_QUOTE: ObjectIdentifier =
