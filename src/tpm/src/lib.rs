@@ -21,6 +21,7 @@ extern crate alloc;
 pub mod cty;
 pub mod rtc;
 pub mod std_lib;
+pub mod tpm2_ca_cert;
 pub mod tpm2_cmd_rsp;
 pub mod tpm2_digests;
 pub mod tpm2_provision;
@@ -65,7 +66,7 @@ pub fn execute_command(request: &[u8], response: &mut [u8], _vtpm_id: u128) -> (
     let rsp_code: u32;
     if let Some(tpm_rsp) = tpm_rsp {
         rsp_code = tpm_rsp.get_response_code();
-        GLOBAL_TPM_DATA.lock().last_tpm_cmd_code = Some(rsp_code);
+        GLOBAL_TPM_DATA.lock().last_tpm_rsp_code = Some(rsp_code);
         // log::info!("rsp code: {:x?}\n", rsp_code);
     } else {
         log::error!("Invalid Tpm2ResponseHeader!\n");
