@@ -13,17 +13,9 @@ use crate::{
     },
 };
 use alloc::{slice, vec::Vec};
-use attestation::get_quote;
-use crypto::{
-    ek_cert::{generate_ca_cert, generate_ek_cert},
-    resolve::{generate_ecdsa_keypairs, ResolveError},
-};
-use eventlog::eventlog::{event_log_size, get_event_log};
-use global::{VtpmError, VtpmResult, VTPM_MAX_BUFFER_SIZE};
-use ring::{
-    digest,
-    signature::{EcdsaKeyPair, KeyPair},
-};
+use crypto::ek_cert::generate_ek_cert;
+use global::{VtpmError, VtpmResult, GLOBAL_TPM_DATA, VTPM_MAX_BUFFER_SIZE};
+use ring::signature;
 
 const TPM2_EK_ECC_SECP384R1_HANDLE: u32 = 0x81010016;
 const TPM2_ALG_AES: u16 = 0x0006;
@@ -302,31 +294,6 @@ pub fn tpm2_get_ek_pub() -> Vec<u8> {
     out_public.to_vec()
 }
 
-fn get_td_quote(data: &[u8]) -> Result<Vec<u8>, VtpmError> {
-    // first calc the hash of ek_pub
-    let data_hash = digest::digest(&digest::SHA384, data);
-
-    // Generate the TD Report that contains the ek_pub hash as nonce
-    let mut td_report_data = [0u8; 64];
-    td_report_data[..data_hash.as_ref().len()].copy_from_slice(data_hash.as_ref());
-    let td_report =
-        tdx_tdcall::tdreport::tdcall_report(&td_report_data).map_err(|_| ResolveError::GetTdReport);
-    if td_report.is_err() {
-        log::error!("Failed to get td_report.\n");
-        return Err(VtpmError::EkProvisionError);
-    }
-    let td_report = td_report.unwrap();
-
-    // at last call get_quote
-    let td_quote = get_quote(td_report.as_bytes()).map_err(|_| VtpmError::EkProvisionError);
-
-    if td_quote.is_err() {
-        log::error!("Failed to get td_quote.\n");
-    }
-
-    td_quote
-}
-
 pub fn tpm2_write_cert_nvram(
     nvindex: u32,
     cert: &[u8],
@@ -495,41 +462,10 @@ fn tpm2_nv_write(nvindex: u32, data: &[u8], max_nv_buffer: u32) -> VtpmResult {
     Ok(())
 }
 
-fn create_ecdsa_keypairs() -> Option<EcdsaKeyPair> {
-    let pkcs8 = generate_ecdsa_keypairs();
-    if pkcs8.is_none() {
-        log::error!("Failed to generate pkcs8.\n");
-        return None;
-    }
-
-    let key_pair = ring::signature::EcdsaKeyPair::from_pkcs8(
-        &ring::signature::ECDSA_P384_SHA384_ASN1_SIGNING,
-        pkcs8.unwrap().as_ref(),
-    );
-
-    if key_pair.is_err() {
-        log::error!("Failed to generate ecdsa keypair from pkcs8.\n");
-        return None;
-    }
-    Some(key_pair.unwrap())
-}
-
 fn get_tpm2_caps() -> Option<(u32, u32)> {
-    let tpm2_caps = tpm2_get_caps();
-    if tpm2_caps.is_none() {
-        return None;
-    }
-    let tpm2_caps = tpm2_caps.unwrap();
-    let max_nv_index_size = tpm2_caps.get(&TPM_PT_NV_INDEX_MAX);
-    if max_nv_index_size.is_none() {
-        return None;
-    }
-    let max_nv_index_size = *max_nv_index_size.unwrap();
-    let max_nv_buffer_size = tpm2_caps.get(&TPM_PT_NV_BUFFER_MAX);
-    if max_nv_buffer_size.is_none() {
-        return None;
-    }
-    let max_nv_buffer_size = *max_nv_buffer_size.unwrap();
+    let tpm2_caps = tpm2_get_caps()?;
+    let max_nv_index_size = *tpm2_caps.get(&TPM_PT_NV_INDEX_MAX)?;
+    let max_nv_buffer_size = *tpm2_caps.get(&TPM_PT_NV_BUFFER_MAX)?;
 
     // log::info!("max_nv_index_size=0x{0:x?}, max_nv_buffer_size=0x{1:x?}\n", max_nv_index_size, max_nv_buffer_size);
 
@@ -565,35 +501,25 @@ pub fn tpm2_provision_ek() -> VtpmResult {
             break;
         }
 
-        // create ecdsa_keypair for ca-cert
-        let key_pair = create_ecdsa_keypairs();
-        if key_pair.is_none() {
+        // get the ca_cert and its keypair (in pkcs8 format)
+        let ca_cert = GLOBAL_TPM_DATA.lock().get_ca_cert();
+        if ca_cert.is_empty() {
+            break;
+        }
+
+        let pkcs8 = GLOBAL_TPM_DATA.lock().get_ca_cert_pkcs8();
+        if pkcs8.is_empty() {
+            break;
+        }
+
+        let key_pair = ring::signature::EcdsaKeyPair::from_pkcs8(
+            &signature::ECDSA_P384_SHA384_ASN1_SIGNING,
+            pkcs8.as_slice(),
+        );
+        if key_pair.is_err() {
             break;
         }
         let key_pair = key_pair.unwrap();
-
-        // get td_quote
-        let td_quote = get_td_quote(key_pair.public_key().as_ref());
-        if td_quote.is_err() {
-            break;
-        }
-        let td_quote = td_quote.unwrap();
-
-        // get the event_log
-        let event_log = get_event_log();
-        let size = event_log_size(event_log);
-        if size.is_none() {
-            break;
-        }
-        let size = size.unwrap();
-        let event_log = &event_log[..size + 1];
-
-        // first generate ca-cert
-        let ca_cert = generate_ca_cert(td_quote.as_slice(), event_log, &key_pair);
-        if ca_cert.is_err() {
-            break;
-        }
-        let ca_cert = ca_cert.unwrap();
 
         // then generate ek-cert
         let ek_cert = generate_ek_cert(ek_pub.as_slice(), &key_pair);
@@ -613,7 +539,7 @@ pub fn tpm2_provision_ek() -> VtpmResult {
         }
 
         if tpm2_write_cert_nvram(
-            TPM2_NV_INDEX_ECC_SECP384R1_HI_EKCERT as u32,
+            TPM2_NV_INDEX_ECC_SECP384R1_HI_EKCERT,
             ek_cert.as_slice(),
             max_nv_index_size as u16,
             max_nv_buffer_size,
@@ -625,7 +551,7 @@ pub fn tpm2_provision_ek() -> VtpmResult {
 
         // save ca-cert into NV
         if tpm2_write_cert_nvram(
-            TPM2_NV_INDEX_VTPM_CA_CERT_CHAIN as u32,
+            TPM2_NV_INDEX_VTPM_CA_CERT_CHAIN,
             ca_cert.as_slice(),
             max_nv_index_size as u16,
             max_nv_buffer_size,
