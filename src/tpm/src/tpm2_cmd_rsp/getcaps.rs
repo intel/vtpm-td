@@ -14,7 +14,7 @@ const TPM_CAP_TPM_PROPERTIES: u32 = 6;
 fn read_u32_from_bytes(bytes: &[u8], be: bool) -> u32 {
     let mut buf: [u8; 4] = [0; 4];
     buf.copy_from_slice(bytes);
-    let mut val: u32 = 0;
+    let mut val: u32;
     if be {
         val = u32::from_be_bytes(buf);
     } else {

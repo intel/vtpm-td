@@ -21,10 +21,7 @@ pub struct VtpmIoTransport {
 impl VtpmIoTransport {
     pub fn new(vtpm_id: u128) -> VtpmIoTransport {
         let tunnel = TdTunnel::default();
-        Self {
-            tunnel: tunnel,
-            vtpm_id: vtpm_id,
-        }
+        Self { tunnel, vtpm_id }
     }
 }
 

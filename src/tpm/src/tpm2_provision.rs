@@ -52,17 +52,17 @@ const TPM2_NV_INDEX_VTPM_CA_CERT_CHAIN: u32 = 0x01c00100;
 #[repr(C, packed)]
 struct Tpm2AuthBlock {
     pub auth: u32,
-    pub foo: u16,
+    pub rsvd: u16,
     pub continue_session: u8,
     pub bar: u16,
 }
 
 impl Tpm2AuthBlock {
-    fn new(auth: u32, foo: u16, continue_session: u8, bar: u16) -> Self {
+    fn new(auth: u32, rsvd: u16, continue_session: u8, bar: u16) -> Self {
         Self {
             auth: auth.to_be(),
-            foo: foo.to_be(),
-            continue_session: continue_session,
+            rsvd: rsvd.to_be(),
+            continue_session,
             bar: bar.to_be(),
         }
     }
@@ -101,7 +101,7 @@ impl Tpm2EvictControlReq {
         persistent_handle: u32,
     ) -> Self {
         Tpm2EvictControlReq {
-            hdr: hdr,
+            hdr,
             auth: auth.to_be(),
             obj_handle: obj_handle.to_be(),
             authblk_len: authblk_len.to_be(),
@@ -176,7 +176,7 @@ fn tpm2_create_ek_ec384() -> VtpmResult {
     public.extend_from_slice(&keyflags.to_be_bytes());
     public.extend_from_slice(&authpolicy_len.to_be_bytes());
     public.extend_from_slice(&authpolicy);
-    public.extend_from_slice(&symkeydata);
+    public.extend_from_slice(symkeydata);
     public.extend_from_slice(&TPM2_ALG_NULL.to_be_bytes());
     public.extend_from_slice(&ecc_details);
 
@@ -184,7 +184,7 @@ fn tpm2_create_ek_ec384() -> VtpmResult {
     create_primary_req.extend_from_slice(hdr.as_slice());
     create_primary_req.extend_from_slice(&TPM2_RH_ENDORSEMENT.to_be_bytes());
     create_primary_req.extend_from_slice(&Tpm2AuthBlock::size().to_be_bytes());
-    create_primary_req.extend_from_slice(&authblock.as_slice());
+    create_primary_req.extend_from_slice(authblock.as_slice());
     create_primary_req.extend_from_slice(&4_u16.to_be_bytes());
     create_primary_req.extend_from_slice(&0_u32.to_be_bytes());
     create_primary_req.extend_from_slice(&(public.len() as u16).to_be_bytes());
@@ -198,7 +198,7 @@ fn tpm2_create_ek_ec384() -> VtpmResult {
     left_hdr.copy_from_slice(hdr.as_slice());
 
     let mut rsp: [u8; VTPM_MAX_BUFFER_SIZE] = [0; VTPM_MAX_BUFFER_SIZE];
-    let (rsp_size, rsp_code) = execute_command(&create_primary_req.as_mut_slice(), &mut rsp, 0);
+    let (rsp_size, rsp_code) = execute_command(create_primary_req.as_mut_slice(), &mut rsp, 0);
 
     if rsp_size == 0 || rsp_code != TPM_RC_SUCCESS {
         log::error!("Failed of tpm2_createprimary. code = 0x{:x?}\n", rsp_code);
@@ -314,12 +314,12 @@ pub fn tpm2_write_cert_nvram(
 
     let cert_len: u16 = cert.len() as u16;
 
-    let mut start: u16 = 0;
-    let mut end: u16 = 0;
-    let mut data_len: u16 = 0;
+    let mut start: u16;
+    let mut end: u16;
+    let mut data_len: u16;
     let mut left: u16 = cert_len;
     let mut index: u32 = nvindex;
-    let mut nv_space_size: u16 = 0;
+    let mut nv_space_size: u16;
 
     loop {
         if left == 0 {
@@ -380,7 +380,7 @@ fn tpm2_nvdefine_space(nvindex: u32, nvindex_attrs: u32, data_len: usize) -> Vtp
     nv_req.extend_from_slice(hdr.as_slice());
     nv_req.extend_from_slice(&TPM2_RH_PLATFORM.to_be_bytes());
     nv_req.extend_from_slice(&Tpm2AuthBlock::size().to_be_bytes());
-    nv_req.extend_from_slice(&authblock.as_slice());
+    nv_req.extend_from_slice(authblock.as_slice());
     nv_req.extend_from_slice(&0_u16.to_be_bytes());
     nv_req.extend_from_slice(&(nvpublic.len() as u16).to_be_bytes());
     nv_req.extend_from_slice(nvpublic.as_slice());
@@ -410,7 +410,7 @@ fn tpm2_nv_write_chunk(nvindex: u32, offset: u16, data: &[u8]) -> VtpmResult {
     nv_req.extend_from_slice(&TPM2_RH_PLATFORM.to_be_bytes());
     nv_req.extend_from_slice(&nvindex.to_be_bytes());
     nv_req.extend_from_slice(&Tpm2AuthBlock::size().to_be_bytes());
-    nv_req.extend_from_slice(&authblock.as_slice());
+    nv_req.extend_from_slice(authblock.as_slice());
     nv_req.extend_from_slice(&(data.len() as u16).to_be_bytes());
     nv_req.extend_from_slice(data);
     nv_req.extend_from_slice(&offset.to_be_bytes());
@@ -433,7 +433,7 @@ fn tpm2_nv_write_chunk(nvindex: u32, offset: u16, data: &[u8]) -> VtpmResult {
 
 fn tpm2_nv_write(nvindex: u32, data: &[u8], max_nv_buffer: u32) -> VtpmResult {
     let mut start: u16 = 0;
-    let mut end: u16 = 0;
+    let mut end: u16;
     let data_len = data.len() as u16;
 
     if data_len == 0 {
