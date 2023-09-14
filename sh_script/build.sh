@@ -39,6 +39,10 @@ function build() {
   /bin/bash sh_script/build.sh -algo ${ALGO}
   popd
 
+  pushd deps/td-shim/devtools/td-layout-config
+  cargo run -- -t memory ../../../../config/shim_layout.json -o ../../td-layout/src/runtime/exec.rs
+  popd
+
   pushd deps/td-shim
   cargo xbuild -p td-shim \
     --target x86_64-unknown-none \
@@ -58,6 +62,7 @@ function build() {
     -- target/x86_64-unknown-none/release/ResetVector.bin target/x86_64-unknown-none/release/td-shim \
     -p ../../target/x86_64-unknown-none/release/vtpmtd \
     -t executable \
+    -m ../../config/metadata.json \
     -o target/x86_64-unknown-none/release/vtpmtd.bin
 
   cargo run -p td-shim-tools --features=enroller \
