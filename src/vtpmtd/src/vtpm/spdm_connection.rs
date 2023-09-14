@@ -147,7 +147,7 @@ pub struct SpdmConnection {
 impl SpdmConnection {
     pub fn new(vtpm_id: u128) -> SpdmConnection {
         Self {
-            vtpm_id: vtpm_id,
+            vtpm_id,
             status: SpdmConnectionStatus::NotStarted,
             session_id: 0,
             session_state: SpdmSessionState::SpdmSessionNotStarted,
