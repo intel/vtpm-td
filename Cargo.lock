@@ -603,6 +603,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "td-benchmark"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "linked_list_allocator",
+ "log",
+ "spin 0.9.8",
+]
+
+[[package]]
 name = "td-exception"
 version = "0.1.0"
 dependencies = [
@@ -666,6 +676,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spin 0.9.8",
+ "td-benchmark",
  "td-exception",
  "td-logger",
  "td-paging",
@@ -828,6 +839,7 @@ dependencies = [
  "spdm",
  "spdmlib",
  "spin 0.9.8",
+ "td-benchmark",
  "td-exception",
  "td-layout",
  "td-loader",
