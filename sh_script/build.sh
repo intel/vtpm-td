@@ -6,12 +6,14 @@
 
 ALGO="sha256,sha384"
 BUILD_OPT="build"
+ENABLE_BENCHMARK=0
 
 usage() {
    echo "$0 [options]"
    echo "Available <commands>:"
-   echo " -algo [sha256,sha384,sha512] Supported hash algorithm. (default supported algorithms are sha256 and sha384)"
+   echo " -algo [sha256,sha384,sha512] Supported hash algorithm. (Default supported algorithms are sha256 and sha384)"
    echo " -clean Clean the build objects"
+   echo " -bench Enable benchmark. (Default is disabled.)"
   exit 1
 }
 
@@ -35,6 +37,9 @@ function build() {
   SUPPORTED_HASH_ALGO=""
   [[ "${ALGO}" != "" ]] && SUPPORTED_HASH_ALGO=",${ALGO}"
 
+  BENCHMARK_FEATURES=""
+  [[ ${ENABLE_BENCHMARK} == 1 ]] && BENCHMARK_FEATURES=",test_heap_size,test_stack_size"
+
   pushd deps/rust-tpm-20-ref
   /bin/bash sh_script/build.sh -algo ${ALGO}
   popd
@@ -52,7 +57,7 @@ function build() {
 
   cargo xbuild \
     --target x86_64-unknown-none \
-    --features=td-logger/tdx${SUPPORTED_HASH_ALGO} \
+    --features=td-logger/tdx${SUPPORTED_HASH_ALGO}${BENCHMARK_FEATURES} \
     -p vtpmtd --release
 
   pushd deps/td-shim
@@ -82,6 +87,10 @@ while [[ $1 != "" ]]; do
       BUILD_OPT="clean"
       shift
       ;;
+    -bench)
+      ENABLE_BENCHMARK=1
+      shift
+      ;;
    *)        usage;;
    esac
    shift
@@ -95,5 +104,6 @@ export AR=llvm-ar
 case "${BUILD_OPT}" in
     clean) clean ;;
     build) build ;;
+
     *) echo "unknown build option - ${BUILD_OPT}" ;;
 esac

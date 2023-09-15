@@ -52,8 +52,18 @@ pub extern "C" fn _start(hob: u64, payload: u64) -> ! {
         shadow_stack_size: DEFAULT_SHADOW_STACK_SIZE,
     };
 
+    #[cfg(feature = "test_stack_size")]
+    {
+        td_benchmark::StackProfiling::init(0x5a5a_5a5a_5a5a_5a5a, 0xd000);
+    }
+
     let _ = td_logger::init();
     log::info!("vtpm-td is startup\n");
+
+    #[cfg(any(feature = "test_stack_size", feature = "test_heap_size"))]
+    {
+        log::info!("td_benchmark enabled.\n");
+    }
 
     arch::init::pre_init(hob, &layout);
 

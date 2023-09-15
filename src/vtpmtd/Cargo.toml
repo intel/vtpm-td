@@ -46,6 +46,8 @@ spdm = { path = "../spdm" }
 tdtunnel = { path = "../tdtunnel" }
 tpm = { path = "../tpm" }
 
+td-benchmark = { path = "../../deps/td-shim/devtools/td-benchmark", default-features = false,  optional = true }
+
 [dependencies.lazy_static]
 version = "1.0"
 features = ["spin_no_std"]
@@ -54,3 +56,5 @@ features = ["spin_no_std"]
 sha256 = []
 sha384 = []
 sha512 = []
+test_heap_size = ["td-benchmark", "td-payload/test_heap_size"]
+test_stack_size = ["td-benchmark"]

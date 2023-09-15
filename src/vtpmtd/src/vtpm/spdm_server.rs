@@ -129,6 +129,9 @@ pub extern "C" fn start_spdm_server() {
 
         let operation = GLOBAL_SPDM_DATA.lock().operation();
         if let Ok(operation) = operation {
+            #[cfg(any(feature = "test_stack_size", feature = "test_heap_size"))]
+            test_memory();
+
             if operation == TdVtpmOperation::Destroy {
                 log::info!("Wait for another Create event.\n");
                 GLOBAL_TPM_DATA.lock().clear();
@@ -142,4 +145,18 @@ pub extern "C" fn start_spdm_server() {
     }
 
     unsafe { halt() };
+}
+
+#[cfg(any(feature = "test_stack_size", feature = "test_heap_size"))]
+fn test_memory() {
+    #[cfg(feature = "test_stack_size")]
+    {
+        let value = td_benchmark::StackProfiling::stack_usage().unwrap();
+        log::info!("max stack usage: 0x{:x?}\n", value);
+    }
+    #[cfg(feature = "test_heap_size")]
+    {
+        let value = td_benchmark::HeapProfiling::heap_usage().unwrap();
+        log::info!("max heap usage: 0x{:x?}\n", value);
+    }
 }
