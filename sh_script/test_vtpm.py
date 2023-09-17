@@ -30,9 +30,17 @@ from vtpmtool import VtpmTool, vtpm_context
 LOG = logging.getLogger(__name__)
 
 def test_config_A_launch_tdvf_without_vtpm():
+    cmd = f'tpm2_pcrread sha256'
+    
     with vtpm_context() as ctx:
         ctx.start_user_td(with_guest_kernel=True)
         ctx.connect_ssh()
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM should not be exists" 
+        
+        ctx.terminate_user_td()
 
 def test_config_A_launch_tdvf_with_vtpm_shell():
     with vtpm_context() as ctx:
@@ -129,23 +137,6 @@ def test_config_A_2_vtpm_2_user(count_overwrite: int = None):
 
 def test_config_A_10_vtpm_10_user():
     test_config_A_2_vtpm_2_user(count_overwrite=10)
-
-def test_stress_reset_500_cycles(cycle_overwrite: int = None):
-    with vtpm_context() as ctx:
-        ctx.generate_startup_into_vtpm_test_img(
-            ["fs0:", "Tcg2DumpLog.efi > event.log", "reset"]
-        )
-        ctx.start_vtpm_td()
-        ctx.execute_qmp()
-        ctx.start_user_td()
-
-        cycle = cycle_overwrite or 500
-        for i in range(cycle):
-            event_log = ctx.read_log(filename="event.log")
-            assert event_log and Utils.EVENT_ERR_FLAG not in event_log
-            ctx.start_user_td()
-
-        ctx.terminate_all_tds()
 
 def test_config_A_send_create_command_twice_with_qmp():
     with vtpm_context() as ctx:
@@ -500,12 +491,71 @@ Config-B:
 CC Measurement
 """
 def test_config_B_no_sb_launch_tdvf_without_vtpm():
+    cmd = f'tpm2_pcrread sha256'
+    
     with vtpm_context() as ctx:
         ctx.start_user_td(with_guest_kernel=True)
         ctx.connect_ssh()
-        # TBD - Check CCEL table
-        # TBD - Do RTMR replay
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM should not be exists" 
+        
         ctx.terminate_user_td()
+
+def test_config_B_no_sb_create_destroy_instance():
+    cmd = f'tpm2_pcrread sha256'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        # Create instance
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        
+        # Destroy instance
+        ctx.execute_qmp(is_create=False)
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM is still work after detroy instance" 
+        
+        ctx.terminate_user_td()
+        # Create instance
+        ctx.execute_qmp()
+        
+        LOG.debug(cmd)
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        ctx.terminate_all_tds()
+
+def test_config_B_no_sb_reset_usertd():
+    cmd = f'tpm2_pcrread sha256'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        # Create instance
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        runner1 = ctx.exec_ssh_command(cmd)
+        assert runner1[1] == "", "Failed to execute remote command" 
+        ctx.terminate_user_td()
+        
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        runner2 = ctx.exec_ssh_command(cmd)
+        assert runner2[1] == "", "Failed to execute remote command" 
+        ctx.terminate_user_td()
+        
+        # Compare the pcr values of 2 times, should be same
+        assert runner1[0] == runner2[0], "First time pcr value is not equal the second time's"
+            
+    ctx.terminate_all_tds()
 
 def test_config_B_no_sb_vtpm_command_nvread():
     """
@@ -623,10 +673,7 @@ def test_config_B_no_sb_vtpm_command_pcrread():
     """
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
     2. Run tpm command to read PCR and replay by evnet_logs
-    """
-    # pcr 0 1 2 3 4 5 6 7 9
-    pcr_num = 10
-    
+    """    
     LOG.info("Create TDVM with vTPM device")
     
     with vtpm_context() as ctx:  
@@ -634,38 +681,7 @@ def test_config_B_no_sb_vtpm_command_pcrread():
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
         ctx.connect_ssh()
-        # Read PCR value sha256
-        cmd = f'tpm2_pcrread sha256'
-        runner = ctx.exec_ssh_command(cmd)
-        assert runner[1] == ""
-        pcr256_values = []
-        for num in range(pcr_num):
-            pcr256_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
-        
-        # Read PCR value sha384
-        cmd = f'tpm2_pcrread sha384'
-        runner = ctx.exec_ssh_command(cmd)
-        assert runner[1] == ""
-        pcr384_values = []
-        for num in range(pcr_num):
-            pcr384_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
-        
-        # Read PCR value in event log
-        cmd = f'tpm2_eventlog /sys/kernel/security/tpm0/binary_bios_measurements'
-        runner = ctx.exec_ssh_command(cmd)
-        assert runner[1] == "", "Failed to execute remote command"  
-        event_log_pcr = runner[0]
-        
-        # PCR value should be replayed by event log
-        LOG.debug("PCR[0] in eventlog: %s", event_log_pcr)
-        LOG.debug("PCR[0]: %s", pcr256_values)
-        LOG.debug("PCR[0]: %s", pcr384_values)
-
-        for num in range(pcr_num):
-            if num != 8:
-                assert pcr256_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
-                assert pcr384_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
-
+        ctx.pcr_replay()
         ctx.terminate_all_tds() 
 
 def test_config_B_no_sb_vtpm_command_pcrextend():
@@ -835,12 +851,71 @@ Config-B:
 CC Measurement + Secure Boot
 """
 def test_config_B_sb_launch_tdvf_without_vtpm_grub_boot():
+    cmd = f'tpm2_pcrread sha256'
+    
     with vtpm_context() as ctx:
         ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
         ctx.connect_ssh()
-        # TBD - Check CCEL table
-        # TBD - Do RTMR replay
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM should not be exists" 
+        
         ctx.terminate_user_td()
+
+def test_config_B_sb_create_destroy_instance():
+    cmd = f'tpm2_pcrread sha256'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        # Create instance
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        
+        # Destroy instance
+        ctx.execute_qmp(is_create=False)
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM is still work after detroy instance" 
+        
+        ctx.terminate_user_td()
+        # Create instance
+        ctx.execute_qmp()
+        
+        LOG.debug(cmd)
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        ctx.terminate_all_tds()
+
+def test_config_B_sb_reset_usertd():
+    cmd = f'tpm2_pcrread sha256'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        # Create instance
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        runner1 = ctx.exec_ssh_command(cmd)
+        assert runner1[1] == "", "Failed to execute remote command" 
+        ctx.terminate_user_td()
+        
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        runner2 = ctx.exec_ssh_command(cmd)
+        assert runner2[1] == "", "Failed to execute remote command" 
+        ctx.terminate_user_td()
+        
+        # Compare the pcr values of 2 times, should be same
+        assert runner1[0] == runner2[0], "First time pcr value is not equal the second time's"
+            
+    ctx.terminate_all_tds()
 
 def test_config_B_sb_vtpm_command_nvread():
     """
@@ -1164,3 +1239,17 @@ def test_config_B_sb_vtpm_simple_attestation_with_tpm2_tools():
             assert runner[1] == "", "Failed to execute remote command"
         
         ctx.terminate_all_tds()
+
+def test_stress_test_reset_user_td():
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        for time in range(ctx.stress_test_cycles):
+            LOG.debug("###### {}  Cycle ######".format(time + 1))
+            ctx.start_user_td(with_guest_kernel=True)
+            ctx.connect_ssh()
+            ctx.pcr_replay()
+            # reset user td
+            ctx.terminate_user_td()
+            
+    ctx.terminate_all_tds()
