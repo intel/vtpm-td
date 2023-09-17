@@ -58,6 +58,7 @@ class VtpmTool:
         self.vtpm_test_img_mount_path: str = None
         self.default_user_id: str = None
         self.default_startup_cmds: List[str] = None
+        self.stress_test_cycles: str = None
         self.default_wait_tools_run_seconds: int = None
         cfg = self._parse_toml_config()
         for k, v in cfg.items():
@@ -206,15 +207,20 @@ class VtpmTool:
         # wait for tools run
         time.sleep(self.wait_tools_run_seconds)
 
-    def execute_qmp(self):
+    def execute_qmp(self, is_create=True):
         """
         Execute qmp commands alone.
         """
+        if is_create:
+            cmd = "tdx-vtpm-create-instance"
+        else:
+            cmd = "tdx-vtpm-destroy-instance"
+        
         QMP_SOCK = f"/tmp/qmp-sock-vtpm-{self.user_id}"
         QMP_CMDS = [
             {"execute": "qmp_capabilities"},
             {
-                "execute": "tdx-vtpm-create-instance",
+                "execute": cmd,
                 "arguments": {"user-id": self.user_id},
             },
         ]
@@ -245,6 +251,36 @@ class VtpmTool:
         stdin, stdout, stderr = self.ssh.exec_command(command)
 
         return [stdout.read().decode(), stderr.read().decode()]
+    
+    def pcr_replay(self):
+        # pcr 0 1 2 3 4 5 6 7 9
+        pcr_num = 10
+        # Read PCR value sha256
+        cmd = f'tpm2_pcrread sha256'
+        runner = self.exec_ssh_command(cmd)
+        assert runner[1] == ""
+        pcr256_values = []
+        for num in range(pcr_num):
+            pcr256_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
+        
+        # Read PCR value sha384
+        cmd = f'tpm2_pcrread sha384'
+        runner = self.exec_ssh_command(cmd)
+        assert runner[1] == ""
+        pcr384_values = []
+        for num in range(pcr_num):
+            pcr384_values.append(runner[0].split("\n")[num + 1].split(":")[-1].strip().lower())
+        
+        # Read PCR value in event log
+        cmd = f'tpm2_eventlog /sys/kernel/security/tpm0/binary_bios_measurements'
+        runner = self.exec_ssh_command(cmd)
+        assert runner[1] == "", "Failed to execute remote command"  
+        event_log_pcr = runner[0]
+        
+        for num in range(pcr_num):
+            if num != 8:
+                assert pcr256_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
+                assert pcr384_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
     
     def create_key_enroll(self, key):
 
