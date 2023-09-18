@@ -161,7 +161,7 @@ pub fn generate_ek_cert(
         .add_extension(Extension::new(KEY_USAGE, Some(true), Some(&ku))?)?
         .add_extension(Extension::new(
             SUBJECT_ALT_NAME,
-            Some(true),
+            Some(false),
             Some(&sub_alt_name),
         )?)?
         .sign(&mut sig_buf, signer)?
