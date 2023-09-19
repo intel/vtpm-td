@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout sources - vTpm
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Initialize and update submodules
         run: git submodule update --init --recursive
