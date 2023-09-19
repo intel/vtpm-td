@@ -15,7 +15,7 @@ use crate::resolve::{
 };
 use crate::x509::{self, DistinguishedName, Extension};
 use crate::{
-    resolve::{ResolveError, ID_EC_PUBKEY_OID, SECP384R1_OID, VTPMTD_EXTENDED_KEY_USAGE},
+    resolve::{ResolveError, ID_EC_PUBKEY_OID, SECP384R1_OID},
     x509::{AlgorithmIdentifier, X509Error},
 };
 

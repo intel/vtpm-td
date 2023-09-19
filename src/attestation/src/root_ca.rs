@@ -15,8 +15,12 @@ pub fn set_ca(cert: &'static [u8]) -> Result<(), Error> {
         .try_call_once(|| Certificate::from_der(cert))
         .map_err(|_| Error::InvalidRootCa)?;
 
-    if ROOT_CA
-        .get()
+    let cert = ROOT_CA.get();
+    if cert.is_none() {
+        return Err(Error::InvalidRootCa);
+    }
+
+    if cert
         .unwrap()
         .tbs_certificate
         .subject_public_key_info
