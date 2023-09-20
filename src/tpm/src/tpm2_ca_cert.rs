@@ -9,7 +9,7 @@ use crypto::{
     resolve::{generate_ecdsa_keypairs, ResolveError},
 };
 use eventlog::eventlog::{event_log_size, get_event_log};
-use global::{VtpmError, VtpmResult, GLOBAL_TPM_DATA};
+use global::{sensitive_data_cleanup, VtpmError, VtpmResult, GLOBAL_TPM_DATA};
 use ring::{
     digest,
     signature::{EcdsaKeyPair, KeyPair},
@@ -48,7 +48,7 @@ pub fn gen_tpm2_ca_cert() -> VtpmResult {
         log::error!("Failed to generate pkcs8.\n");
         return Err(VtpmError::CaCertError);
     }
-    let pkcs8 = pkcs8.unwrap();
+    let mut pkcs8 = pkcs8.unwrap();
 
     let key_pair = EcdsaKeyPair::from_pkcs8(
         &ring::signature::ECDSA_P384_SHA384_ASN1_SIGNING,
@@ -59,7 +59,7 @@ pub fn gen_tpm2_ca_cert() -> VtpmResult {
         log::error!("Failed to generate ecdsa keypair from pkcs8.\n");
         return Err(VtpmError::CaCertError);
     }
-    let key_pair = key_pair.unwrap();
+    let mut key_pair = key_pair.unwrap();
 
     // get td_quote
     let td_quote = get_td_quote(key_pair.public_key().as_ref());
@@ -90,5 +90,7 @@ pub fn gen_tpm2_ca_cert() -> VtpmResult {
         .map_err(|_| VtpmError::CaCertError)?;
     GLOBAL_TPM_DATA.lock().set_ca_cert_pkcs8(pkcs8.as_ref())?;
 
+    sensitive_data_cleanup(&mut key_pair);
+    sensitive_data_cleanup(&mut pkcs8);
     Ok(())
 }
