@@ -54,6 +54,8 @@ pub const ID_EC_PUBKEY_OID: ObjectIdentifier = ObjectIdentifier::new("1.2.840.10
 // }
 pub const SECP384R1_OID: ObjectIdentifier = ObjectIdentifier::new("1.3.132.0.34");
 
+pub const ID_EC_SIG_OID: ObjectIdentifier = ObjectIdentifier::new("1.2.840.10045.4.3.3");
+
 #[derive(Debug)]
 pub enum ResolveError {
     GenerateKey,
@@ -113,12 +115,18 @@ pub fn generate_certificate(
         algorithm: ID_EC_PUBKEY_OID,
         parameters: Some(Any::new(Tag::ObjectIdentifier, SECP384R1_OID.as_bytes()).unwrap()),
     };
+
+    let sig_alg = AlgorithmIdentifier {
+        algorithm: ID_EC_SIG_OID,
+        parameters: None,
+    };
+
     let eku = vec![VTPMTD_EXTENDED_KEY_USAGE];
     let eku = eku
         .to_vec()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
     let x509_certificate =
-        x509::CertificateBuilder::new(algorithm, algorithm, key_pair.public_key().as_ref())?
+        x509::CertificateBuilder::new(sig_alg, algorithm, key_pair.public_key().as_ref())?
             // 1970-01-01T00:00:00Z
             .set_not_before(core::time::Duration::new(0, 0))?
             // 9999-12-31T23:59:59Z
