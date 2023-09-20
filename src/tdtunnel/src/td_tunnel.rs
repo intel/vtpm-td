@@ -191,7 +191,7 @@ impl TdVtpmEvent {
         self.operation
     }
 
-    pub fn get_tdvm_id(self) -> u128 {
+    pub fn get_tpm_id(self) -> u128 {
         self.vtpm_id
     }
 }

@@ -22,7 +22,7 @@ pub(crate) mod field {
     pub const RESERVED: Field = 2..4;
 }
 
-// pub const HEADER_LEN: usize = field::TDVM_ID.end;
+// pub const HEADER_LEN: usize = field::TPM_ID.end;
 pub const HEADER_LEN: usize = field::RESERVED.end;
 
 /// Packet manage a buffer for protocol.

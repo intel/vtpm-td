@@ -21,7 +21,7 @@ pub(crate) mod field {
     pub const COMMAND: usize = 1;
     pub const OPERATION: usize = 2;
     pub const STATUS: usize = 3;
-    pub const TDVM_ID: Field = 4..20;
+    pub const TPM_ID: Field = 4..20;
     pub const DATA: Rest = 20..;
 }
 
@@ -54,9 +54,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         let buf = self.buffer.as_mut();
         buf[field::STATUS] = value;
     }
-    pub fn set_tdvm_id(&mut self, vtpm_id: u128) {
+    pub fn set_tpm_id(&mut self, vtpm_id: u128) {
         let buf = self.buffer.as_mut();
-        LittleEndian::write_u128(&mut buf[field::TDVM_ID], vtpm_id);
+        LittleEndian::write_u128(&mut buf[field::TPM_ID], vtpm_id);
     }
     pub fn set_data(&mut self, data: &[u8]) -> VtpmResult<usize> {
         let buf = self.buffer.as_mut();
@@ -107,7 +107,7 @@ pub fn build_command(
     packet.set_version(DEFAULT_VERSION);
     packet.set_command(COMMAND_REPORT_STATUS);
     packet.set_status(status);
-    packet.set_tdvm_id(vtpm_id);
+    packet.set_tpm_id(vtpm_id);
     packet.set_operation(operation);
     let mut data_len = 0;
     if data_buffer_len != 0 {
@@ -137,7 +137,7 @@ mod test {
         packet.set_version(version);
         packet.set_command(command);
         packet.set_status(status);
-        packet.set_tdvm_id(vtpm_id);
+        packet.set_tpm_id(vtpm_id);
         packet.set_operation(operation);
         let data_len = packet.set_data(&data);
         assert_eq!(data_len.unwrap(), data.len());
@@ -153,10 +153,7 @@ mod test {
         let invalid_data = [1u8; INVALID_DATA_SIZE];
         let res = packet.set_data(&invalid_data);
         assert!(res.is_err());
-        assert_eq!(
-            LittleEndian::read_u128(&mut buffer[field::TDVM_ID]),
-            vtpm_id
-        );
+        assert_eq!(LittleEndian::read_u128(&mut buffer[field::TPM_ID]), vtpm_id);
     }
 
     #[test]
@@ -170,10 +167,7 @@ mod test {
         assert_eq!(res.unwrap(), data.len() + HEADER_LEN);
         assert_eq!(buffer[field::STATUS], status);
         assert_eq!(buffer[field::OPERATION], operation);
-        assert_eq!(
-            LittleEndian::read_u128(&mut buffer[field::TDVM_ID]),
-            vtpm_id
-        );
+        assert_eq!(LittleEndian::read_u128(&mut buffer[field::TPM_ID]), vtpm_id);
         assert_eq!(buffer[field::DATA][0..data.len()], data);
     }
 
