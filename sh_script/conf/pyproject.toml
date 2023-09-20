@@ -14,5 +14,5 @@ default_user_id = "aabbccdd-2012-2022-1234-123456789123"
 default_startup_cmds = [
   "fs0:",
 ]
-stress_test_cycles = 100
+stress_test_cycles = 1000
 default_wait_tools_run_seconds = 20

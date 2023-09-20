@@ -14,6 +14,7 @@ A vtpm test framework to help startup vtpm user td and check dump logs.
 - Please don't run with root user otherwise there will be a env var issue that causes the launch of qemu to fail.
 
 Example:
+Recommend to use python 3.10
 --------------
 $ python3 -m venv .venv
 $ source .venv/bin/activate
@@ -503,6 +504,35 @@ def test_config_B_no_sb_launch_tdvf_without_vtpm():
         
         ctx.terminate_user_td()
 
+def test_config_B_no_sb_verify_CA_certificate():
+    export_ca_cmd = '''
+                  #!/bin/bash\n
+                  CA_CERT_NV_INDEX=0x01c00100\n
+                  NV_SIZE=`tpm2_nvreadpublic $CA_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert.bin $CA_CERT_NV_INDEX'''
+
+    convert2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    verify_ca_cmd = "openssl verify -CAfile ca_cert.pem ca_cert.pem"
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+
+        LOG.debug(export_ca_cmd)
+        runner = ctx.exec_ssh_command(export_ca_cmd)
+        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1])  
+        
+        LOG.debug(convert2pem_cmd)
+        runner = ctx.exec_ssh_command(convert2pem_cmd)
+        assert runner[1] == "", "Failed to convert CA from der to pem: {}".format(runner[1]) 
+        
+        LOG.debug(verify_ca_cmd)
+        runner = ctx.exec_ssh_command(verify_ca_cmd)
+        assert runner[1] == "", "Verify CA fail: {}".format(runner[1])  
+      
+        ctx.terminate_all_tds()
+
 def test_config_B_no_sb_create_destroy_instance():
     cmd = f'tpm2_pcrread sha256'
 
@@ -893,6 +923,35 @@ def test_config_B_sb_launch_tdvf_without_vtpm_grub_boot():
         assert runner[1] != "", "vTPM should not be exists" 
         
         ctx.terminate_user_td()
+
+def test_config_B_no_sb_verify_CA_certificate():
+    export_ca_cmd = '''
+                  #!/bin/bash\n
+                  CA_CERT_NV_INDEX=0x01c00100\n
+                  NV_SIZE=`tpm2_nvreadpublic $CA_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert.bin $CA_CERT_NV_INDEX'''
+
+    convert2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    verify_ca_cmd = "openssl verify -CAfile ca_cert.pem ca_cert.pem"
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+
+        LOG.debug(export_ca_cmd)
+        runner = ctx.exec_ssh_command(export_ca_cmd)
+        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1]) 
+        
+        LOG.debug(convert2pem_cmd)
+        runner = ctx.exec_ssh_command(convert2pem_cmd)
+        assert runner[1] == "", "Failed to convert CA from der to pem: {}".format(runner[1]) 
+        
+        LOG.debug(verify_ca_cmd)
+        runner = ctx.exec_ssh_command(verify_ca_cmd)
+        assert runner[1] == "", "Verify CA fail: {}".format(runner[1]) 
+      
+        ctx.terminate_all_tds()
 
 def test_config_B_sb_create_destroy_instance():
     cmd = f'tpm2_pcrread sha256'
