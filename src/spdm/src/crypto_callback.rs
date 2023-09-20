@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use core::panic;
-use global::GLOBAL_SPDM_DATA;
+use global::{sensitive_data_cleanup, GLOBAL_SPDM_DATA};
 use spdmlib::protocol::{
     SpdmBaseAsymAlgo, SpdmBaseHashAlgo, SpdmSignatureStruct, SPDM_MAX_ASYM_KEY_SIZE,
 };
@@ -36,13 +36,13 @@ fn sign_ecdsa_asym_algo(
     assert!(algorithm == &ring::signature::ECDSA_P384_SHA384_FIXED_SIGNING);
 
     let binding = GLOBAL_SPDM_DATA.lock();
-    let pkcs8 = binding.pkcs8()?;
+    let mut pkcs8 = binding.pkcs8()?;
 
     let key_pair = ring::signature::EcdsaKeyPair::from_pkcs8(algorithm, pkcs8);
     if key_pair.is_err() {
         return None;
     }
-    let key_pair = key_pair.unwrap();
+    let mut key_pair = key_pair.unwrap();
 
     let rng = ring::rand::SystemRandom::new();
 
@@ -56,6 +56,9 @@ fn sign_ecdsa_asym_algo(
 
     let mut full_signature: [u8; SPDM_MAX_ASYM_KEY_SIZE] = [0u8; SPDM_MAX_ASYM_KEY_SIZE];
     full_signature[..signature.len()].copy_from_slice(signature);
+
+    sensitive_data_cleanup(&mut key_pair);
+    sensitive_data_cleanup(&mut pkcs8);
 
     Some(SpdmSignatureStruct {
         data_size: signature.len() as u16,

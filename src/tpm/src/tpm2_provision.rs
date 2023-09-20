@@ -14,7 +14,9 @@ use crate::{
 };
 use alloc::{slice, vec::Vec};
 use crypto::ek_cert::generate_ek_cert;
-use global::{VtpmError, VtpmResult, GLOBAL_TPM_DATA, VTPM_MAX_BUFFER_SIZE};
+use global::{
+    sensitive_data_cleanup, VtpmError, VtpmResult, GLOBAL_TPM_DATA, VTPM_MAX_BUFFER_SIZE,
+};
 use ring::signature;
 
 const TPM2_EK_ECC_SECP384R1_HANDLE: u32 = 0x81010016;
@@ -507,7 +509,7 @@ pub fn tpm2_provision_ek() -> VtpmResult {
             break;
         }
 
-        let pkcs8 = GLOBAL_TPM_DATA.lock().get_ca_cert_pkcs8();
+        let mut pkcs8 = GLOBAL_TPM_DATA.lock().get_ca_cert_pkcs8();
         if pkcs8.is_empty() {
             break;
         }
@@ -519,7 +521,7 @@ pub fn tpm2_provision_ek() -> VtpmResult {
         if key_pair.is_err() {
             break;
         }
-        let key_pair = key_pair.unwrap();
+        let mut key_pair = key_pair.unwrap();
 
         // then generate ek-cert
         let ek_cert = generate_ek_cert(ek_pub.as_slice(), &key_pair);
@@ -528,6 +530,9 @@ pub fn tpm2_provision_ek() -> VtpmResult {
         }
         let ek_cert = ek_cert.unwrap();
 
+        //should clear the sensitive key data after generate_ek_cert.
+        sensitive_data_cleanup(&mut key_pair);
+        sensitive_data_cleanup(&mut pkcs8);
         // save ek-cert into NV
         if ek_cert.as_slice().len() > max_nv_index_size as usize {
             log::error!(
