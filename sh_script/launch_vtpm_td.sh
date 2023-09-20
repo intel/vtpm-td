@@ -7,7 +7,7 @@
 QEMU=/usr/local/bin/qemu-system-x86_64
 BIOS=
 USERTD_ID=aabbccdd-2012-2022-1234-123456789123
-MEM=256M
+MEM=32M
 
 now=$(date +"%m%d_%H%M%S")
 LOGDIR=log_vtpmtd
