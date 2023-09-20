@@ -90,7 +90,7 @@ pub extern "C" fn start_spdm_server() {
                 &[],
                 vtpm_id,
                 rsp_packet.operation(),
-                TdVtpmReportStatus::InvalidOperation as u8,
+                TdVtpmReportStatus::InvalidParameter as u8,
             );
             continue;
         }
@@ -102,7 +102,7 @@ pub extern "C" fn start_spdm_server() {
                 &[],
                 vtpm_id,
                 operation as u8,
-                TdVtpmReportStatus::InvalidOperation as u8,
+                TdVtpmReportStatus::VtpmInstanceNotStarted as u8,
             );
             continue;
         }
