@@ -557,6 +557,37 @@ def test_config_B_no_sb_reset_usertd():
             
     ctx.terminate_all_tds()
 
+def test_config_B_no_sb_kill_vtpm_td():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Kill vtpm-td, check user TD status, tpm command should not work
+    3. Relaunch vtpm-td and create instance, check user TD status, tpm command should not work
+    """
+    cmd = f'tpm2_pcrread sha256'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        
+        ctx.terminate_vtpm_td()
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM is still work after kill vTPM" 
+        
+        # Relaunch vtpm-td and create instance
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM is still work after kill vTPM" 
+
+        ctx.terminate_all_tds()
+
 def test_config_B_no_sb_vtpm_command_nvread():
     """
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
@@ -916,6 +947,37 @@ def test_config_B_sb_reset_usertd():
         assert runner1[0] == runner2[0], "First time pcr value is not equal the second time's"
             
     ctx.terminate_all_tds()
+
+def test_config_B_sb_kill_vtpm_td():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Kill vtpm-td, check user TD status, tpm command should not work
+    3. Relaunch vtpm-td and create instance, check user TD status, tpm command should not work
+    """
+    cmd = f'tpm2_pcrread sha256'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True, grub_boot=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        
+        ctx.terminate_vtpm_td()
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM is still work after kill vTPM" 
+        
+        # Relaunch vtpm-td and create instance
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM is still work after kill vTPM" 
+
+        ctx.terminate_all_tds()
 
 def test_config_B_sb_vtpm_command_nvread():
     """
