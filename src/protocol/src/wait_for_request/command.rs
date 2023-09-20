@@ -19,10 +19,10 @@ pub(crate) mod field {
     pub const VERSION: usize = 0;
     pub const COMMAND: usize = 1;
     pub const RESERVED: Field = 2..4;
-    pub const TDVM_ID: Field = 4..20;
+    pub const TPM_ID: Field = 4..20;
 }
 
-pub const HEADER_LEN: usize = field::TDVM_ID.end;
+pub const HEADER_LEN: usize = field::TPM_ID.end;
 /// Packet manage a buffer for protocol.
 pub struct Packet<T: AsRef<[u8]>> {
     buffer: T,
@@ -43,9 +43,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Packet<T> {
         let buf = self.buffer.as_mut();
         buf[field::COMMAND] = value;
     }
-    pub fn set_tdvm_id(&mut self, vtpm_id: u128) {
+    pub fn set_tpm_id(&mut self, vtpm_id: u128) {
         let buf = self.buffer.as_mut();
-        LittleEndian::write_u128(&mut buf[field::TDVM_ID], vtpm_id);
+        LittleEndian::write_u128(&mut buf[field::TPM_ID], vtpm_id);
     }
 }
 
@@ -77,7 +77,7 @@ pub fn build_command_header(data_buffer: &mut [u8], vtpm_id: u128) -> VtpmResult
     let mut packet = Packet::new_unchecked(data_buffer);
     packet.set_version(DEFAULT_VERSION);
     packet.set_command(COMMAND_WAIT_FOR_REQUEST);
-    packet.set_tdvm_id(vtpm_id);
+    packet.set_tpm_id(vtpm_id);
     Ok(HEADER_LEN)
 }
 
@@ -98,14 +98,14 @@ mod test {
         let mut packet = Packet::new_unchecked(&mut data_buffer);
         packet.set_version(version);
         packet.set_command(command);
-        packet.set_tdvm_id(vtpm_id);
+        packet.set_tpm_id(vtpm_id);
         assert_eq!(packet.as_ref()[field::VERSION], version);
         let version_2 = 1;
         packet.as_mut()[field::VERSION] = version_2;
         assert_eq!(version_2, packet.as_ref()[field::VERSION]);
         assert_eq!(data_buffer[field::COMMAND], command);
         assert_eq!(
-            LittleEndian::read_u128(&data_buffer[field::TDVM_ID]),
+            LittleEndian::read_u128(&data_buffer[field::TPM_ID]),
             vtpm_id
         );
     }
@@ -116,10 +116,7 @@ mod test {
         let vtpmid = 101 as u128;
         let res = build_command_header(&mut data_buffer, vtpmid);
         assert_eq!(res.unwrap(), HEADER_LEN);
-        assert_eq!(
-            LittleEndian::read_u128(&data_buffer[field::TDVM_ID]),
-            vtpmid
-        );
+        assert_eq!(LittleEndian::read_u128(&data_buffer[field::TPM_ID]), vtpmid);
     }
 
     #[test]
