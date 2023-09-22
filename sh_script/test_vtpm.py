@@ -1374,3 +1374,655 @@ def test_stress_test_reset_user_td():
             ctx.terminate_user_td()
             
     ctx.terminate_all_tds()
+
+def test_tpm_cmd_with_vtpm():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Run all tpm commands (Tpm2 Command Coverage 91/99 ~ 91.9%):
+        tpm2_activatecredential
+        tpm2_certify
+        tpm2_certifycreation
+        tpm2_certifyX509certutil --> not test in this case
+        tpm2_changeauth 
+        tpm2_changeeps
+        tpm2_changepps
+        tpm2_checkquote
+        tpm2_clear
+        tpm2_clearcontrol
+        tpm2_clockrateadjust
+        tpm2_commit
+        tpm2_create
+        tpm2_createak
+        tpm2_createek
+        tpm2_createpolicy
+        tpm2_createprimary
+        tpm2_dictionarylockout
+        tpm2_duplicate
+        tpm2_ecdhkeygen
+        tpm2_ecdhzgen
+        tpm2_ecephemeral
+        tpm2_encryptdecrypt
+        tpm2_eventlog --> not test in this case
+        tpm2_evictcontrol
+        tpm2_flushcontext
+        tpm2_getcap
+        tpm2_getcommandauditdigest --> not ready
+        tpm2_geteccparameters
+        tpm2_getekcertificate --> not ready
+        tpm2_getrandom
+        tpm2_getsessionauditdigest
+        tpm2_gettestresult
+        tpm2_gettime 
+        tpm2_hash 
+        tpm2_hierarchycontrol
+        tpm2_hmac
+        tpm2_import
+        tpm2_incrementalselftest
+        tpm2_load
+        tpm2_loadexternal 
+        tpm2_makecredential 
+        tpm2_nvcertify 
+        tpm2_nvdefine 
+        tpm2_nvextend 
+        tpm2_nvincrement
+        tpm2_nvread
+        tpm2_nvreadlock
+        tpm2_nvreadpublic
+        tpm2_nvsetbits
+        tpm2_nvundefine
+        tpm2_nvwrite
+        tpm2_nvwritelock
+        tpm2_pcrallocate 
+        tpm2_pcrevent 
+        tpm2_pcrextend 
+        tpm2_pcrread 
+        tpm2_pcrreset
+        tpm2_policyauthorize
+        tpm2_policyauthorizenv
+        tpm2_policyauthvalue
+        tpm2_policycommandcode
+        tpm2_policycountertimer
+        tpm2_policycphash
+        tpm2_policyduplicationselect
+        tpm2_policylocality
+        tpm2_policynamehash
+        tpm2_policynv --> not ready
+        tpm2_policynvwritten
+        tpm2_policyor
+        tpm2_policypassword
+        tpm2_policypcr
+        tpm2_policyrestart
+        tpm2_policysecret
+        tpm2_policysigned
+        tpm2_policytemplate
+        tpm2_policyticket --> not ready
+        tpm2_print
+        tpm2_quote
+        tpm2_rc_decode --> not test in this case
+        tpm2_readclock
+        tpm2_readpublic
+        tpm2_rsadecrypt
+        tpm2_rsaencrypt
+        tpm2_selftest
+        tpm2_send
+        tpm2_sessionconfig
+        tpm2_setclock
+        tpm2_setcommandauditstatus
+        tpm2_setprimarypolicy
+        tpm2_shutdown --> not test in this case
+        tpm2_sign
+        tpm2_startauthsession
+        tpm2_startup --> not test in this case
+        tpm2_stirrandom
+        tpm2_testparms
+        tpm2_unseal
+        tpm2_verifysignature
+        tpm2_zgen2phase
+    """
+    LOG.info("Create TDVM with vTPM device")
+    # Run tpm command to check connectivity between user TD and vTPM TD
+
+    cmd_certify_list = [
+        f'tpm2_createprimary -Q -C e -g sha256 -G rsa -c primary.ctx',
+        f'tpm2_create -Q -g sha256 -G rsa -u certify.pub -r certify.priv -C primary.ctx',
+        f'tpm2_load -Q -C primary.ctx -u certify.pub -r certify.priv -n certify.name -c certify.ctx',
+        f'tpm2_certify -Q -c primary.ctx -C certify.ctx -g sha256 -o attest.out -s sig.out'
+    ] 
+
+    cmd_certifycreation_list = [
+        f'tpm2_createprimary -C o -c prim.ctx --creation-data create.dat -d create.dig -t create.ticket',
+        f'tpm2_create -G rsa -u rsa.pub -r rsa.priv -C prim.ctx -c signing_key.ctx',
+        f'tpm2_certifycreation -C signing_key.ctx -c prim.ctx -d create.dig -t create.ticket -g sha256 -o sig.nature --attestation attestat.ion -f plain -s rsassa'
+    ] 
+
+    cmd_tpm2_dictionarylockout_list = [
+        f'tpm2_dictionarylockout --setup-parameters --max-tries=4294967295 --clear-lockout'
+    ]
+
+    ## can use tpm2_getcap properties-variable to check the value
+    cmd_set_and_clear_authorization_list = [
+        f'tpm2_changeauth -c owner newpass',
+        f'tpm2_clockrateadjust -p newpass ss',
+        f'tpm2_changeauth -c endorsement newpass',
+        f'tpm2_changeauth -c lockout newpass',
+        f'tpm2_clear -c p'
+    ] 
+
+    cmd_change_seed_list = [
+        f'tpm2_changeeps',
+        f'tpm2_changepps'
+    ] 
+
+    cmd_checkquote_list = [
+        f'tpm2_createek -c 0x81010001 -G rsa -u ekpub.pem -f pem',
+        f'tpm2_createak -C 0x81010001 -c ak.ctx -G rsa -s rsassa -g sha256 \
+        -u akpub.pem -f pem -n ak.name',
+        f'tpm2_quote -c ak.ctx -l sha256:15,16,22 -q abc123 -m quote.msg -s quote.sig \
+        -o quote.pcrs -g sha256',
+        f'tpm2_checkquote -u akpub.pem -m quote.msg -s quote.sig -f quote.pcrs -g sha256 -q abc123'
+    ] 
+
+    ## can use tpm2_getcap properties-variable to check the "disableClear"
+    cmd_clearcontrl_list = [
+        f'tpm2_clearcontrol -C l s',
+        f'tpm2_clearcontrol -C p c'
+    ] 
+
+    cmd_commit_list = [
+        f'tpm2_createprimary -C o -c prim.ctx -Q',
+        f'tpm2_create -C prim.ctx -c key.ctx -u key.pub -r key.priv -G ecc256:ecdaa',
+        f'tpm2_commit -c key.ctx -t count.er --eccpoint-K K.bin --eccpoint-L L.bin -u E.bin'
+    ]
+
+    cmd_duplicate_list = [
+        f'tpm2_startauthsession -S session.dat',
+        f'tpm2_policycommandcode -S session.dat -L policy.dat TPM2_CC_Duplicate',
+        f'tpm2_flushcontext session.dat',
+        f'tpm2_createprimary -C o -g sha256 -G rsa -c primary.ctxt',
+        f'tpm2_create -C primary.ctxt -g sha256 -G rsa -r key.prv -u key.pub  -c key.ctxt -L policy.dat -a "sensitivedataorigin|userwithauth|decrypt|sign" ',
+        f'tpm2_createprimary -C o -g sha256 -G ecc -c new_parent.ctxt',
+        f'tpm2_startauthsession \--policy-session -S session.dat',
+        f'tpm2_policycommandcode -S session.dat -L policy.dat TPM2_CC_Duplicate',
+        f'tpm2_duplicate -C new_parent.ctxt -c key.ctxt -G null -p "session:session.dat" -r duprv.bin -s seed.dat',
+        f'tpm2_flushcontext session.dat'
+    ] 
+
+    cmd_ecd_gen_key_list = [
+        f'tpm2_createprimary -C o -c prim.ctx -Q',
+        f'tpm2_create -C prim.ctx -c key.ctx -u key.pub -r key.priv -G ecc256:ecdh',
+        f'tpm2_ecdhkeygen -u ecdh.pub -o ecdh.priv -c key.ctx',
+        f'tpm2_ecdhzgen -u ecdh.pub -o ecdh.dat -c key.ctx'
+    ]
+
+    cmd_eephemeral_list = [
+        f'tpm2_ecephemeral -u ecc.q -t ecc.ctr ecc256'
+    ]
+
+    cmd_encryptdecrypt_list = [
+        f'tpm2_createprimary -c primary.ctx',
+        f'tpm2_create -C primary.ctx -Gaes128 -u key.pub -r key.priv',
+        f'tpm2_load -C primary.ctx -u key.pub -r key.priv -c key.ctx',
+        f'echo "my secret" > secret.dat',
+        f'tpm2_encryptdecrypt -c key.ctx -o secret.enc secret.dat',
+        f'tpm2_encryptdecrypt -d -c key.ctx -o secret.dec secret.enc',
+        f'cat secret.dec'## should be "my secret"
+    ]
+
+    cmd_get_data_list = [
+        f'tpm2_getcap -l',
+        f'tpm2_getcap properties-variable',
+        f'tpm2_getcap properties-fixed',
+        f'tpm2_geteccparameters ecc256 -o ecc.params',
+        f'tpm2_getrandom 8 -o random.out',
+        f'tpm2_gettestresult'
+    ]
+
+    cmd_getsessionauditdigest_list = [
+        f'tpm2_createprimary -Q -C e -c prim.ctx',
+        f'tpm2_create -Q -C prim.ctx -c signing_key.ctx -u signing_key.pub -r signing_key.priv',
+        f'tpm2_startauthsession -S session.ctx --audit-session',
+        f'tpm2_getrandom 8 -S session.ctx',
+        f'tpm2_getsessionauditdigest -c signing_key.ctx -m att.data -s att.sig -S session.ctx'
+    ]
+
+    cmd_gettime_list = [
+        f'tpm2_createprimary -C e -c primary.ctx',
+        f'tpm2_create -G rsa -u rsa.pub -r rsa.priv -C primary.ctx',
+        f'tpm2_load -C primary.ctx -u rsa.pub -r rsa.priv -c rsa.ctx',
+        f'tpm2_gettime -c rsa.ctx -o attest.sig --attestation attest.data'
+    ]
+
+    cmd_hash_list =[
+        f'echo "text" > data.txt',
+        f'tpm2_hash -C e -g sha256 -o hash.bin -t ticket.bin data.txt'
+    ]
+
+    cmd_hierarchycontrol_list = [
+        f'tpm2_hierarchycontrol -C p shEnable clear',
+        f'tpm2_getcap properties-variable', ##check the value 'shEnable'
+        f'tpm2_hierarchycontrol -C p shEnable set',
+        f'tpm2_getcap properties-variable'      
+    ]
+
+    cmd_hmac_list = [
+        f'tpm2_createprimary -c primary.ctx',
+        f'tpm2_create -C primary.ctx -G hmac -c hmac.key',
+        f'echo "0x" > data.in', 
+        f'tpm2_hmac -c hmac.key --hex data.in'   
+    ]
+
+    cmd_tpm_test_list = [
+        f'tpm2_incrementalselftest rsa ecc',
+        f'tpm2_selftest',
+        f'tpm2_testparms rsa ecc'
+    ]
+
+    cmd_loadexternal_list = [
+        f'tpm2_createprimary -c primary.ctx',
+        f'tpm2_create -C primary.ctx -u pub.dat -r priv.dat',
+        f'tpm2_loadexternal -C o -u pub.dat -c pub.ctx'
+    ]
+
+    cmd_nvcertify_list = [
+        f'tpm2_nvdefine -s 32 -a "authread|authwrite" 1',
+        f'dd if=/dev/urandom bs=1 count=32 status=none| \
+          tpm2_nvwrite 1 -i-',
+        f'tpm2_createprimary -C o -c primary.ctx -Q',
+        f'tpm2_create -G rsa -u rsa.pub -r rsa.priv -C primary.ctx -c signing_key.ctx -Q',
+        f'tpm2_readpublic -c signing_key.ctx -f pem -o sslpub.pem -Q',
+        f'tpm2_nvcertify -C signing_key.ctx -g sha256 -f plain -s rsassa \
+          -o signature.bin --attestation attestation.bin --size 32 1',
+        f'tpm2_nvundefine 1'
+    ]
+
+    cmd_nvextend_list = [
+        f'tpm2_nvdefine -C o -a "nt=extend|ownerread|policywrite|ownerwrite|writedefine" 1',
+        f'echo "my data" | tpm2_nvextend -C o -i- 1',
+        f'tpm2_nvread -C o 1 | xxd -p -c32',
+        f'tpm2_nvundefine 1' 
+    ]
+
+    cmd_nv_read_list = [
+        f'tpm2_nvdefine -C o -s 32 -a "ownerread|policywrite|ownerwrite" 1',
+        f'echo "please123abc" > nv.dat',
+        f'tpm2_nvwrite -C o -i nv.dat 1',
+        f'tpm2_nvread -C o -s 12 1',
+        f'tpm2_nvundefine 1'
+    ] 
+
+    cmd_nvincrement_list = [
+        f'tpm2_nvdefine -C o -s 8 -a "ownerread|authread|authwrite|nt=1" 0x1500016 -p index',
+        f'tpm2_nvincrement -C 0x1500016  0x1500016 -P "index"',
+        f'tpm2_nvread 0x1500016 -P index | xxd -p',
+        f'tpm2_nvundefine 0x1500016'
+    ]
+
+    cmd_nv_readlock_list = [
+        f'tpm2_nvdefine -Q  1 -C o -s 32 -a "ownerread|policywrite|ownerwrite|read_stclear" ',
+        f'echo "foobar" > nv.readlock',
+        f'tpm2_nvwrite -Q   0x01000001 -C o -i nv.readlock',
+        f'tpm2_nvread -Q   1 -C o -s 6 -o 0',
+        f'tpm2_nvreadlock -Q   1 -C o',
+        # f'tpm2_nvread -Q   1 -C o -s 6 -o 0',##should be error with NV access locked
+        f'tpm2_nvundefine 1'
+    ]
+
+    cmd_nvsetbits_list = [
+        f'tpm2_nvdefine -C o -a "nt=bits|ownerread|policywrite|ownerwrite|writedefine" 1 ',
+        f'tpm2_nvsetbits -C o -i 0xbadc0de 1',
+        f'tpm2_nvread -C o 1 ',
+        f'tpm2_nvundefine 1'
+    ] 
+
+    cmd_nvwritelock_list = [
+        f'tpm2_nvdefine -C o -s 32 -a "ownerread|policywrite|ownerwrite|writedefine" 1 ',
+        f'echo "foobar" > nv.writelock',
+        f'tpm2_nvwrite -C o -i nv.writelock 1 ',
+        f'tpm2_nvwritelock -C o 1 ',
+        # f'tpm2_nvwrite -C o -i nv.writelock 1 ',##should be error with NV access locked
+        f'tpm2_nvundefine 1'
+    ]
+
+    cmd_pcr_list = [
+        f'tpm2_pcrallocate sha256:all',
+        f'tpm2_pcrread sha256',
+        f'tpm2_pcrextend 23:sha256=b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c ',#pcr 23 no-empty
+        f'tpm2_pcrreset 23',#pcr 23 empty , can only reset pcr 16 and 23
+        f'echo "foo" > data',
+        f'tpm2_pcrevent 8 data',
+        f'tpm2_pcrread sha256:8'
+    ] 
+
+
+    cmd_policyauthorize_list = [
+        f'openssl genrsa -out signing_key_private.pem 2048',
+        f'openssl rsa -in signing_key_private.pem -out signing_key_public.pem -pubout',
+        f'tpm2_loadexternal -G rsa -C o -u signing_key_public.pem -c signing_key.ctx -n signing_key.name',
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policyauthorize -S session.ctx -L authorized.policy -n signing_key.name',
+        f'tpm2_flushcontext session.ctx'
+    ]
+
+    cmd_policyauthorize_nv_list = [
+        f'tpm2_nvdefine -C o -p nvpass 0x01500001 -a "authread|authwrite" -s 34',
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policypassword -S session.ctx -L policy.pass',
+        f'tpm2_flushcontext session.ctx',
+        f'echo "000b" | xxd -p -r | cat - policy.pass | \
+        tpm2_nvwrite -C 0x01500001 -P nvpass 0x01500001 -i-',
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policyauthorizenv -S session.ctx -C 0x01500001 -P nvpass \
+        -L policyauthorizenv.1500001 0x01500001',
+        f'tpm2_flushcontext session.ctx',
+        f'tpm2_nvundefine 0x01500001'
+    ]
+
+    #create password policy
+    cmd_policyauthvalue_list = [
+        f'tpm2_startauthsession -S session.dat',
+        f'tpm2_policyauthvalue -S session.dat -L policy.dat',
+        f'tpm2_flushcontext session.dat'
+    ]
+
+    cmd_policycommandcode_list = [
+        f'tpm2_startauthsession -S session.dat',
+        f'tpm2_policycommandcode -S session.dat -L policy.dat TPM2_CC_Unseal',
+        f'tpm2_flushcontext session.dat'
+    ]
+
+    cmd_policycountertimer_list = [
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policycountertimer -S session.ctx -L policy.countertimer --ult 60000',
+        f'tpm2_flushcontext session.ctx'
+    ]
+
+    cmd_policycphash_list = [
+        f'openssl genrsa -out signing_key_private.pem 2048',
+        f'openssl rsa -in signing_key_private.pem -out signing_key_public.pem -pubout',
+        f'tpm2_loadexternal -G rsa -C o -u signing_key_public.pem -c signing_key.ctx -n signing_key.name',
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policyauthorize -S session.ctx -L authorized.policy -n signing_key.name',
+        f'tpm2_flushcontext session.ctx',
+        f'tpm2_nvdefine 1 -a "policywrite|authwrite|ownerread|nt=bits" -L authorized.policy',
+        f'tpm2_nvsetbits 1 -i 1 --cphash cp.hash',
+        f'tpm2_startauthsession -S session.ctx -g sha256',
+        f'tpm2_policycphash -S session.ctx -L policy.cphash --cphash cp.hash',
+        f'tpm2_flushcontext session.ctx',
+        f'openssl dgst -sha256 -sign signing_key_private.pem \
+        -out policycphash.signature policy.cphash',
+        f'tpm2_verifysignature -c signing_key.ctx -g sha256 -m policy.cphash \
+        -s policycphash.signature -t verification.tkt -f rsassa',
+        f'tpm2_nvundefine 1'
+    ]
+
+    cmd_policyduplicationselect_list = [
+        f'tpm2_createprimary -C n -g sha256 -G rsa -c dst_n.ctx -Q',
+        f'tpm2_createprimary -C o -g sha256 -G rsa -c src_o.ctx -Q',
+        f'tpm2_readpublic -c dst_n.ctx -n dst_n.name -Q',
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policyduplicationselect -S session.ctx  -N dst_n.name \
+        -L policydupselect.dat -Q',
+        f'tpm2_flushcontext session.ctx'
+    ]
+
+    cmd_policylocality_list = [
+        f'tpm2_startauthsession -S session.dat',
+        f'tpm2_policylocality -S session.dat -L policy.dat three',
+        f'tpm2_flushcontext session.dat'
+    ]
+
+
+    cmd_tpm2_policynamehash_list = [
+        f'openssl genrsa -out signing_key_private.pem 2048',
+        f'openssl rsa -in signing_key_private.pem -out signing_key_public.pem -pubout',
+        f'tpm2_loadexternal -G rsa -C o -u signing_key_public.pem -c signing_key.ctx -n signing_key.name',
+        f'tpm2_startauthsession -S session.ctx -g sha256',
+        f'tpm2_policyauthorize -S session.ctx -L authorized.policy -n signing_key.name',
+        f'tpm2_policycommandcode -S session.ctx -L policy.dat TPM2_CC_Duplicate',
+        f'tpm2_flushcontext session.ctx',
+        f'tpm2_createprimary -C o -g sha256 -G rsa -c primary.ctx -Q',
+        f'tpm2_create -Q -C primary.ctx -g sha256 -G rsa -r key.prv -u key.pub \
+        -L policy.dat -a "sensitivedataorigin|sign|decrypt"',
+        f'tpm2_load -Q -C primary.ctx -r key.prv -u key.pub -c key.ctx',
+        f'tpm2_create -Q -C primary.ctx -g sha256 -G rsa -r new_parent.prv \
+        -u new_parent.pub -a "decrypt|fixedparent|fixedtpm|restricted|sensitivedataorigin" ',
+        f'tpm2_loadexternal -Q -C o -u new_parent.pub -c new_parent.ctx',
+        f'tpm2_readpublic -Q -c new_parent.ctx -n new_parent.name',
+        f'tpm2_readpublic -Q -c key.ctx -n key.name',
+        f'cat key.name new_parent.name | openssl dgst -sha256 -binary > name.hash',
+        f'tpm2_startauthsession -S session.ctx -g sha256',
+        f'tpm2_policynamehash -L policy.namehash -S session.ctx -n name.hash',
+        f'tpm2_flushcontext session.ctx'
+    ]
+
+    cmd_policynvwritten_list = [
+        f'tpm2_startauthsession -S session.dat',
+        f'tpm2_policycommandcode -S session.dat TPM2_CC_NV_Write',
+        f'tpm2_policynvwritten -S session.dat -L nvwrite.policy c',
+        f'tpm2_flushcontext session.dat'
+    ] 
+
+    cmd_policyor_list = [
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policypcr -S session.ctx -L policy.pcr -l sha256:0,1,2,3',
+        f'tpm2_flushcontext session.ctx',
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policypassword -S session.ctx -L policy.pass',
+        f'tpm2_flushcontext session.ctx',
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policyor -S session.ctx -L policy.or sha256:policy.pass,policy.pcr',
+        f'tpm2_flushcontext session.ctx'
+    ]
+
+    cmd_tpm2_policyrestart_list = [
+        f'tpm2_startauthsession -S session.dat',
+        f'tpm2_policypcr -S session.dat -l "sha256:0,1,2,3" -L policy.dat',
+        f'tpm2_createprimary -c primary.ctx',
+        f'tpm2_create -Cprimary.ctx -u key.pub -r key.priv -L policy.dat -i- <<< "secret"',
+        f'tpm2_load -C primary.ctx -c key.ctx -u key.pub -r key.priv',
+        f'tpm2_flushcontext session.dat',
+        f'tpm2_startauthsession --policy -S session.dat',
+        f'tpm2_policypcr -S session.dat -l "sha256:0,1,2,3" ',
+        f'tpm2_pcrevent 0 <<< "event data" ',
+        # f'tpm2_unseal -psession:session.dat -c key.ctx ', #should be tpm:error(2.0): PCR have changed since checked
+        f'tpm2_policyrestart -S session.dat',
+        # f'tpm2_unseal -psession:session.dat -c key.ctx' #should be tpm:session(1):a policy check failed
+    ] 
+
+    cmd_policysigned_list = [
+        f'openssl genrsa -out private.pem 2048',
+        f'openssl rsa -in private.pem -outform PEM -pubout -out public.pem',
+        f'echo "00 00 00 00" | xxd -r -p | \
+        openssl dgst -sha256 -sign private.pem -out signature.dat',
+        f'tpm2_loadexternal -C o -G rsa -u public.pem -c signing_key.ctx',
+        f'tpm2_startauthsession -S session.ctx',
+        f'tpm2_policysigned -S session.ctx -g sha256 -s signature.dat -f rsassa \
+        -c signing_key.ctx -L policy.signed',
+        f'tpm2_flushcontext session.ctx'
+    ] 
+
+
+
+    cmd_tpm2_policytemplate_list = [
+        f'tpm2_createprimary -C o -c prim.ctx --template-data template.data',
+        f'cat template.data | openssl dgst -sha256 -binary -out template.hash',
+        f'tpm2_startauthsession -S session.ctx -g sha256',
+        f'tpm2_policytemplate -S session.ctx -L policy.template \
+        --template-hash template.hash',
+        f'tpm2_flushcontext session.ctx',
+        f'tpm2_setprimarypolicy -C o -g sha256 -L policy.template',
+        f'tpm2_startauthsession -S session.ctx -g sha256 --policy-session',
+        f'tpm2_policytemplate -S session.ctx --template-hash template.hash',
+        f'tpm2_createprimary -C o -c prim2.ctx -P session:session.ctx',
+        f'tpm2_flushcontext session.ctx'
+    ]
+
+    cmd_tpm2_print_list = [
+        f'tpm2_createprimary -C e -c primary.ctx',
+        f'tpm2_create -C primary.ctx -u key.pub -r key.priv',
+        f'tpm2_load -C primary.ctx -u key.pub -r key.priv -c key.ctx',
+        f'tpm2_quote -c key.ctx -l 0x000b:16,17,18 -g sha256 -m msg.dat',
+        f'tpm2_print -t TPMS_ATTEST msg.dat',
+        f'tpm2_print -t TPM2B_PUBLIC key.pub',
+        f'tpm2_createprimary -c primary.ctx',
+        f'tpm2_evictcontrol -c primary.ctx -o primary.tr',
+        f'tpm2_print -t ESYS_TR primary.tr'
+    ] 
+
+    cmd_tpm2_clock_list = [
+        f'tpm2_changeauth -c owner newpass',
+        f'tpm2_setclock -p newpass 13673142',
+        f'tpm2_readclock',
+        f'tpm2_clear -c p'
+    ]  
+
+    cmd_tpm2_rsaencrypt_decrypt_list = [
+        f'tpm2_createprimary -c primary.ctx',
+        f'tpm2_create -C primary.ctx -Grsa2048 -u key.pub -r key.priv',
+        f'tpm2_load -C primary.ctx -u key.pub -r key.priv -c key.ctx',
+        f'echo "my message" > msg.dat',
+        f'tpm2_rsaencrypt -c key.ctx -o msg.enc msg.dat',
+        f'tpm2_rsadecrypt -c key.ctx -o msg.ptext msg.enc',
+        f'cat msg.ptext' #should be my message
+    ] 
+
+
+    cmd_tpm2_sessionconfig_list = [
+        f'tpm2 createprimary -c prim.ctx',
+        f'tpm2 startauthsession -S session.ctx --policy-session -c prim.ctx',
+        f'tpm2 sessionconfig session.ctx',
+        f'tpm2 sessionconfig session.ctx --disable-continuesession',
+        f'tpm2 sessionconfig session.ctx',
+        f'tpm2_flushcontext session.ctx'
+    ] 
+
+    cmd_tpm2_setcommandauditstatus_list = [
+        f'tpm2_setcommandauditstatus TPM2_CC_Unseal'
+    ] 
+
+    cmd_tpm2_sign_list = [
+        f'tpm2_createprimary -C e -c primary.ctx',
+        f'tpm2_create -G rsa -u rsa.pub -r rsa.priv -C primary.ctx',
+        f'tpm2_load -C primary.ctx -u rsa.pub -r rsa.priv -c rsa.ctx',
+        f'echo "my message" > message.dat',
+        f'tpm2_sign -c rsa.ctx -g sha256 -o sig.rssa message.dat',
+        f'tpm2_verifysignature -c rsa.ctx -g sha256 -s sig.rssa -m message.dat',
+    ]
+
+    cmd_tpm2_stirrandom_list = [
+        f'echo -n "myrandomdata" | tpm2_stirrandom'
+    ]
+
+    cmd_zgen2phase_list = [
+        f'tpm2_createprimary -C o -c prim.ctx -Q',
+        f'tpm2_create -C prim.ctx -c key.ctx -u key.pub -r key.priv -G ecc256:ecdh -Q',
+        f'tpm2_ecephemeral -u ecc.q -t ecc.ctr ecc256',
+        f'tpm2_ecdhkeygen -u ecdh.pub -o ecdh.priv -c key.ctx',
+        f'tpm2_zgen2phase -c key.ctx --static-public ecdh.pub --ephemeral-public ecc.q -t 0 --output-Z1 z1.bin --output-Z2 z2.bin'
+    ]
+
+    cmd_unsea_list = [
+        f'tpm2_createprimary -c primary.ctx -Q',
+        f'tpm2_pcrread -Q -o pcr.bin sha256:0,1,2,3',
+        f'tpm2_createpolicy -Q --policy-pcr -l sha256:0,1,2,3 -f pcr.bin -L pcr.policy',
+        f'echo "secret" > data.dat',
+        f'tpm2_create -C primary.ctx -L pcr.policy -i data.dat -u seal.pub -r seal.priv -c seal.ctx -Q',
+        f'tpm2_unseal -c seal.ctx -p pcr:sha256:0,1,2,3'
+    ]
+
+    cmd_tpm2_send_list = [
+        f'echo 0x80 > test.bin',
+        f'tpm2_send < test.bin -o res.bin'
+    ] 
+
+    cmd_tpm2_import_list = [
+        f'tpm2_createprimary -Grsa2048:aes128cfb -C o -c parent.ctx',
+        f'openssl ecparam -name prime256v1 -genkey -noout -out private.ecc.pem',
+        f'tpm2_import -C parent.ctx -G ecc -i private.ecc.pem -u key.pub -r key.priv'
+    ]
+
+
+
+    cmd_list = [
+        cmd_policyauthorize_nv_list,
+        cmd_certify_list,
+        cmd_certifycreation_list,
+        cmd_tpm2_dictionarylockout_list,
+        cmd_set_and_clear_authorization_list,
+        cmd_change_seed_list,
+        cmd_checkquote_list,
+        cmd_clearcontrl_list,
+        cmd_commit_list,
+        cmd_duplicate_list,
+        cmd_ecd_gen_key_list,
+        cmd_eephemeral_list,
+        cmd_encryptdecrypt_list,
+        cmd_get_data_list,
+        cmd_getsessionauditdigest_list,
+        cmd_gettime_list,
+        cmd_hierarchycontrol_list,
+        cmd_hmac_list,
+        cmd_tpm_test_list,
+        cmd_loadexternal_list,
+        cmd_nvcertify_list,
+        cmd_nvextend_list,
+        cmd_nv_read_list,
+        cmd_nvincrement_list,
+        cmd_nv_readlock_list,
+        cmd_nvsetbits_list,
+        cmd_nvwritelock_list,
+        cmd_pcr_list,
+        cmd_hash_list,
+        cmd_policyauthorize_list,
+        cmd_policyauthvalue_list,
+        cmd_policycommandcode_list,
+        cmd_policycountertimer_list,
+        cmd_policycphash_list,
+        cmd_policyduplicationselect_list,
+        cmd_policylocality_list,
+        cmd_tpm2_policynamehash_list,
+        cmd_policynvwritten_list,
+        cmd_policyor_list,
+        cmd_tpm2_policyrestart_list,
+        cmd_policysigned_list,
+        cmd_tpm2_policytemplate_list,
+        cmd_tpm2_print_list,
+        cmd_tpm2_clock_list,
+        cmd_tpm2_rsaencrypt_decrypt_list,
+        cmd_tpm2_sessionconfig_list,
+        cmd_tpm2_setcommandauditstatus_list,
+        cmd_tpm2_stirrandom_list,
+        cmd_zgen2phase_list,
+        cmd_unsea_list,
+        cmd_tpm2_sign_list,
+        cmd_tpm2_send_list,
+        cmd_tpm2_import_list
+    ]
+
+    cmd_mktest = f'rm -rf test_tpm_cmd && mkdir test_tpm_cmd && pushd test_tpm_cmd'
+    cmd_clear_file = f'rm -rf *'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.exec_ssh_command(cmd_mktest)
+        print("vtpm_simple_attestation start ...\n")
+        ctx.vtpm_simple_attestation()
+        print("vtpm_simple_attestation pass\n")
+        for cmd_case in cmd_list:
+            for cmd in cmd_case:
+                LOG.debug(cmd)
+                runner = ctx.exec_ssh_command(cmd,encodingtype='ISO-8859-1')
+                print(cmd)
+                if runner[1] != "":
+                    print("stdout: \n")
+                    print(runner[0])
+                    print("stderr: \n")
+                    print(runner[1])
+                    if "ERROR" in runner[1]:
+                        assert False
+            ctx.exec_ssh_command(cmd_clear_file)
+        ctx.execute_qmp(is_create=False)
+        ctx.terminate_all_tds() 
