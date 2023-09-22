@@ -244,13 +244,13 @@ class VtpmTool:
         if timeout == 0:
             raise BaseException("Connection time out")
     
-    def exec_ssh_command(self, command):
+    def exec_ssh_command(self, command, encodingtype:str = 'utf-8'):
         """
         Execute shell command.
         """
         stdin, stdout, stderr = self.ssh.exec_command(command)
 
-        return [stdout.read().decode(), stderr.read().decode()]
+        return [stdout.read().decode(encoding=encodingtype), stderr.read().decode(encoding=encodingtype)]
     
     def pcr_replay(self):
         # pcr 0 1 2 3 4 5 6 7 9
