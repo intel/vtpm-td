@@ -281,7 +281,97 @@ class VtpmTool:
             if num != 8:
                 assert pcr256_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
                 assert pcr384_values[num] in event_log_pcr, "Fail to replay PCR[{}] in event logs".format(num)
-    
+
+    def vtpm_simple_attestation(self):
+        # Device-Node creating the endorsement-key and the attestation-identity-key
+        LOG.info("Creating the EK and AIK")
+        cmd0_list = [
+            f'tpm2_createek \
+                --ek-context ecc_ek.ctx \
+                --key-algorithm ecc \
+                --public ecc_ek.pub',
+            f'tpm2_createak --ek-context ecc_ek.ctx \
+                --ak-context ecc_ak.ctx \
+                --key-algorithm ecc \
+                --hash-algorithm sha256 \
+                --signing-algorithm ecdsa \
+                --public ecc_ak.pub --private ecc_ak.priv --ak-name ecc_ak.name'
+        ]
+
+        for cmd in cmd0_list:
+            LOG.info(cmd)
+            runner = self.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+
+        # Device-Node retrieving the endorsement-key-certificate to send to the Privacy-CA
+        LOG.info("Retrieving EK and send to Provacy-CA") 
+        cmd2_script = '''
+                  #!/bin/bash\n
+                  ECC_EK_CERT_NV_INDEX=0x01C00016\n
+                  NV_SIZE=`tpm2_nvreadpublic $ECC_EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ecc_ek_cert.bin $ECC_EK_CERT_NV_INDEX\n
+                  sed 's/-/+/g;s/_/\//g;s/%3D/=/g;s/^{.*certificate":"//g;s/"}$//g;' ecc_ek_cert.bin | base64 --decode > ecc_ek_cert.bin'''
+        cmd2_list = [
+            f'echo {cmd2_script} > cmd2.sh',
+            f'bash cmd2.sh'
+        ] 
+
+        for cmd in cmd2_list:
+            LOG.info(cmd)
+            runner = self.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+
+        # “Privacy-CA“ and the “Device-Node“ performing a credential activation challenge in order to verify 
+        # the AIK is bound to the EK from the EK-certificate originally shared by the “Device-Node“
+        LOG.info("Verify AIK is bound to the EK") 
+        cmd3_script = '''
+                #!/bin/bash\n
+                file_size=`stat --printf="%s" ecc_ak.name`\n
+                loaded_key_name=`cat ecc_ak.name | xxd -p -c $file_size`\n
+                echo "this is my secret" > file_input.data\n
+                tpm2_makecredential --tcti none --encryption-key ecc_ek.pub --secret file_input.data --name $loaded_key_name --credential-blob cred.out\n
+                tpm2_startauthsession --policy-session --session session.ctx\n
+                TPM2_RH_ENDORSEMENT=0x4000000B\n
+                tpm2_policysecret -S session.ctx -c $TPM2_RH_ENDORSEMENT\n
+                tpm2_activatecredential --credentialedkey-context ecc_ak.ctx --credentialkey-context ecc_ek.ctx --credential-blob cred.out --certinfo-data actcred.out --credentialkey-auth "session:session.ctx"\n
+                tpm2_flushcontext session.ctx'''
+        cmd3_list = [
+            f'echo {cmd3_script} > cmd3.sh',
+            f'bash cmd3.sh'
+        ] 
+
+        for cmd in cmd3_list:
+            LOG.info(cmd)
+            runner = self.exec_ssh_command(cmd)
+            LOG.info(runner[1])
+            if "WARN: Tool optionally uses SAPI. Continuing with tcti=none" not in runner[1]:
+                assert runner[1] == "", "Failed to execute remote command"
+
+        # “Device-Node“ generating the PCR attestation quote on request from the “Service-Provider“ 
+        # and verifying the attestation quote generated and signed by the “Device-Node“
+        LOG.info("Gen PCR attestation quote and verify attestation quote") 
+        cmd4_list = [
+            f'echo "12345678" > SERVICE_PROVIDER_NONCE',
+            f'tpm2_quote \
+                --key-context ecc_ak.ctx \
+                --pcr-list sha256:0,1,2 \
+                --message pcr_quote.plain \
+                --signature pcr_quote.signature \
+                --qualification SERVICE_PROVIDER_NONCE \
+                --hash-algorithm sha256 \
+                --pcr pcr.bin',
+            f'tpm2_checkquote \
+                --public ecc_ak.pub \
+                --message pcr_quote.plain \
+                --signature pcr_quote.signature \
+                --qualification SERVICE_PROVIDER_NONCE \
+                --pcr pcr.bin'
+        ] 
+        for cmd in cmd4_list:
+            LOG.info(cmd)
+            runner = self.exec_ssh_command(cmd)
+            assert runner[1] == "", "Failed to execute remote command"
+
     def create_key_enroll(self, key):
 
         cmd = f"chmod 777 {self.fd_folder_path}\n"
