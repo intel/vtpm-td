@@ -44,6 +44,8 @@ pub const EXTNID_TDVF_QUOTE: ObjectIdentifier =
 pub const SERVER_AUTH: ObjectIdentifier = ObjectIdentifier::new("1.3.6.1.5.5.7.3.1");
 pub const CLIENT_AUTH: ObjectIdentifier = ObjectIdentifier::new("1.3.6.1.5.5.7.3.2");
 
+pub const TCG_EK_CERTIFICATE: ObjectIdentifier = ObjectIdentifier::new("2.23.133.8.1");
+
 // As specified in https://datatracker.ietf.org/doc/html/rfc5480#appendix-A
 // id-ecPublicKey OBJECT IDENTIFIER ::= {
 //     iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1
@@ -126,7 +128,7 @@ pub fn generate_certificate(
         .to_vec()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
     let x509_certificate =
-        x509::CertificateBuilder::new(sig_alg, algorithm, key_pair.public_key().as_ref())?
+        x509::CertificateBuilder::new(sig_alg, algorithm, key_pair.public_key().as_ref(), true)?
             // 1970-01-01T00:00:00Z
             .set_not_before(core::time::Duration::new(0, 0))?
             // 9999-12-31T23:59:59Z

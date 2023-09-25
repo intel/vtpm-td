@@ -5,8 +5,8 @@
 use alloc::vec;
 use core::convert::{TryFrom, TryInto};
 use der::asn1::{
-    Any, BitString, GeneralizedTime, ObjectIdentifier, OctetString, PrintableString, SetOfVec,
-    UIntBytes, UtcTime, Utf8String,
+    Any, BitString, GeneralizedTime, ObjectIdentifier, OctetString, SetOfVec, UIntBytes, UtcTime,
+    Utf8String,
 };
 use der::{
     Choice, Decodable, Decoder, DerOrd, Encodable, Header, Sequence, Tag, TagNumber, Tagged,
@@ -30,8 +30,14 @@ impl<'a> CertificateBuilder<'a> {
         signature: AlgorithmIdentifier<'a>,
         algorithm: AlgorithmIdentifier<'a>,
         public_key: &'a [u8],
+        self_signed: bool,
     ) -> Result<Self, X509Error> {
-        Ok(Self(Certificate::new(signature, algorithm, public_key)?))
+        Ok(Self(Certificate::new(
+            signature,
+            algorithm,
+            public_key,
+            self_signed,
+        )?))
     }
 
     pub fn set_not_before(mut self, time: core::time::Duration) -> Result<Self, X509Error> {
@@ -102,27 +108,23 @@ impl<'a> Certificate<'a> {
         signature: AlgorithmIdentifier<'a>,
         algorithm: AlgorithmIdentifier<'a>,
         public_key: &'a [u8],
+        self_signed: bool,
     ) -> Result<Self, X509Error> {
         let version = Version(UIntBytes::new(&[2])?);
         let serial_number = UIntBytes::new(&[1])?;
 
-        let mut country_name = SetOfVec::new();
-        country_name.add(DistinguishedName {
-            attribute_type: ObjectIdentifier::new("2.5.4.6"),
-            value: PrintableString::new("US")?.try_into().unwrap(),
+        let mut issuer_name = SetOfVec::new();
+        issuer_name.add(DistinguishedName {
+            attribute_type: ObjectIdentifier::new("2.5.4.3"),
+            value: Utf8String::new("IntelVTpmCA")?.try_into().unwrap(),
         })?;
-        let mut locality_name = SetOfVec::new();
-        locality_name.add(DistinguishedName {
-            attribute_type: ObjectIdentifier::new("2.5.4.7"),
-            value: Utf8String::new("OR")?.try_into().unwrap(),
-        })?;
-        let mut organization_name = SetOfVec::new();
-        organization_name.add(DistinguishedName {
-            attribute_type: ObjectIdentifier::new("2.5.4.10"),
-            value: Utf8String::new("Intel")?.try_into().unwrap(),
-        })?;
+        let issuer = vec![issuer_name];
 
-        let issuer = vec![country_name, locality_name, organization_name];
+        let subject: alloc::vec::Vec<SetOfVec<DistinguishedName<'_>>> = if self_signed {
+            issuer.clone()
+        } else {
+            alloc::vec::Vec::new()
+        };
 
         let validity = Validity {
             not_before: Time::Generalized(GeneralizedTime::from_unix_duration(
@@ -132,8 +134,6 @@ impl<'a> Certificate<'a> {
                 core::time::Duration::new(0, 0),
             )?),
         };
-
-        let subject = issuer.clone();
 
         let subject_public_key_info = SubjectPublicKeyInfo {
             algorithm,
@@ -276,6 +276,66 @@ impl<'a> Sequence<'a> for TBSCertificate<'a> {
             &self.subject_public_key_info,
             &self.extensions,
         ])
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuthorityKeyIdentifier<'a>(pub OctetString<'a>);
+
+impl<'a> Encodable for AuthorityKeyIdentifier<'a> {
+    fn encoded_len(&self) -> der::Result<der::Length> {
+        let len = self.0.encoded_len()?;
+        let explicit = Header::new(
+            der::Tag::ContextSpecific {
+                constructed: true,
+                number: TagNumber::new(0),
+            },
+            len,
+        )?;
+        explicit.encoded_len() + len
+    }
+
+    fn encode(&self, encoder: &mut der::Encoder<'_>) -> der::Result<()> {
+        let len = self.0.encoded_len()?;
+        let explicit = Header::new(
+            der::Tag::ContextSpecific {
+                constructed: true,
+                number: TagNumber::new(0),
+            },
+            len,
+        )?;
+        explicit.encode(encoder)?;
+        self.0.encode(encoder)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SubjectAltName<'a>(pub alloc::vec::Vec<SetOfVec<DistinguishedName<'a>>>);
+
+impl<'a> Encodable for SubjectAltName<'a> {
+    fn encoded_len(&self) -> der::Result<der::Length> {
+        let len = self.0.encoded_len()?;
+        let explicit = Header::new(
+            der::Tag::ContextSpecific {
+                constructed: true,
+                number: TagNumber::new(4),
+            },
+            len,
+        )?;
+        explicit.encoded_len() + len
+    }
+
+    fn encode(&self, encoder: &mut der::Encoder<'_>) -> der::Result<()> {
+        let len = self.0.encoded_len()?;
+        let explicit = Header::new(
+            der::Tag::ContextSpecific {
+                constructed: true,
+                number: TagNumber::new(4),
+            },
+            len,
+        )?;
+        explicit.encode(encoder)?;
+        self.0.encode(encoder)
     }
 }
 
