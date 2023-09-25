@@ -504,15 +504,23 @@ def test_config_B_no_sb_launch_tdvf_without_vtpm():
         
         ctx.terminate_user_td()
 
-def test_config_B_no_sb_verify_CA_certificate():
+def test_config_B_no_sb_verify_CA_and_EK_certificate():
     export_ca_cmd = '''
                   #!/bin/bash\n
                   CA_CERT_NV_INDEX=0x01c00100\n
                   NV_SIZE=`tpm2_nvreadpublic $CA_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
                   tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert.bin $CA_CERT_NV_INDEX'''
+    
+    export_ek_cmd = '''
+                  #!/bin/bash\n
+                  EK_CERT_NV_INDEX=0x01c00016\n
+                  NV_SIZE=`tpm2_nvreadpublic $EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ek_cert.bin $EK_CERT_NV_INDEX'''
 
-    convert2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    convert_ca2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    convert_ek2pem_cmd = "openssl x509 -inform DER -in ek_cert.bin -outform PEM -out ek_cert.pem"
     verify_ca_cmd = "openssl verify -CAfile ca_cert.pem ca_cert.pem"
+    verify_ek_cmd = "openssl verify -CAfile ca_cert.pem ek_cert.pem"
     with vtpm_context() as ctx:     
         ctx.start_vtpm_td()
         ctx.execute_qmp()
@@ -521,15 +529,27 @@ def test_config_B_no_sb_verify_CA_certificate():
 
         LOG.debug(export_ca_cmd)
         runner = ctx.exec_ssh_command(export_ca_cmd)
-        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1])  
+        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1])
         
-        LOG.debug(convert2pem_cmd)
-        runner = ctx.exec_ssh_command(convert2pem_cmd)
+        LOG.debug(export_ek_cmd)
+        runner = ctx.exec_ssh_command(export_ek_cmd)
+        assert runner[1] == "", "Failed to export EK certificate: {}".format(runner[1])  
+        
+        LOG.debug(convert_ca2pem_cmd)
+        runner = ctx.exec_ssh_command(convert_ca2pem_cmd)
         assert runner[1] == "", "Failed to convert CA from der to pem: {}".format(runner[1]) 
+        
+        LOG.debug(convert_ek2pem_cmd)
+        runner = ctx.exec_ssh_command(convert_ek2pem_cmd)
+        assert runner[1] == "", "Failed to convert EK from der to pem: {}".format(runner[1]) 
         
         LOG.debug(verify_ca_cmd)
         runner = ctx.exec_ssh_command(verify_ca_cmd)
         assert runner[1] == "", "Verify CA fail: {}".format(runner[1])  
+        
+        LOG.debug(verify_ek_cmd)
+        runner = ctx.exec_ssh_command(verify_ek_cmd)
+        assert runner[1] == "", "Verify EK fail: {}".format(runner[1])  
       
         ctx.terminate_all_tds()
 
@@ -924,15 +944,23 @@ def test_config_B_sb_launch_tdvf_without_vtpm_grub_boot():
         
         ctx.terminate_user_td()
 
-def test_config_B_no_sb_verify_CA_certificate():
+def test_config_B_sb_verify_CA_and_EK_certificate():
     export_ca_cmd = '''
                   #!/bin/bash\n
                   CA_CERT_NV_INDEX=0x01c00100\n
                   NV_SIZE=`tpm2_nvreadpublic $CA_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
                   tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert.bin $CA_CERT_NV_INDEX'''
+    
+    export_ek_cmd = '''
+                  #!/bin/bash\n
+                  EK_CERT_NV_INDEX=0x01c00016\n
+                  NV_SIZE=`tpm2_nvreadpublic $EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ek_cert.bin $EK_CERT_NV_INDEX'''
 
-    convert2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    convert_ca2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    convert_ek2pem_cmd = "openssl x509 -inform DER -in ek_cert.bin -outform PEM -out ek_cert.pem"
     verify_ca_cmd = "openssl verify -CAfile ca_cert.pem ca_cert.pem"
+    verify_ek_cmd = "openssl verify -CAfile ca_cert.pem ek_cert.pem"
     with vtpm_context() as ctx:     
         ctx.start_vtpm_td()
         ctx.execute_qmp()
@@ -941,15 +969,27 @@ def test_config_B_no_sb_verify_CA_certificate():
 
         LOG.debug(export_ca_cmd)
         runner = ctx.exec_ssh_command(export_ca_cmd)
-        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1]) 
+        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1])
         
-        LOG.debug(convert2pem_cmd)
-        runner = ctx.exec_ssh_command(convert2pem_cmd)
+        LOG.debug(export_ek_cmd)
+        runner = ctx.exec_ssh_command(export_ek_cmd)
+        assert runner[1] == "", "Failed to export EK certificate: {}".format(runner[1])  
+        
+        LOG.debug(convert_ca2pem_cmd)
+        runner = ctx.exec_ssh_command(convert_ca2pem_cmd)
         assert runner[1] == "", "Failed to convert CA from der to pem: {}".format(runner[1]) 
+        
+        LOG.debug(convert_ek2pem_cmd)
+        runner = ctx.exec_ssh_command(convert_ek2pem_cmd)
+        assert runner[1] == "", "Failed to convert EK from der to pem: {}".format(runner[1]) 
         
         LOG.debug(verify_ca_cmd)
         runner = ctx.exec_ssh_command(verify_ca_cmd)
-        assert runner[1] == "", "Verify CA fail: {}".format(runner[1]) 
+        assert runner[1] == "", "Verify CA fail: {}".format(runner[1])  
+        
+        LOG.debug(verify_ek_cmd)
+        runner = ctx.exec_ssh_command(verify_ek_cmd)
+        assert runner[1] == "", "Verify EK fail: {}".format(runner[1])  
       
         ctx.terminate_all_tds()
 
