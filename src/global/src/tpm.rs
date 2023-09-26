@@ -9,6 +9,21 @@ use crate::{PKCS8_DOCUMENT_MAX_LEN, VTPM_CA_CERT_MAX_SIZE};
 use alloc::vec::Vec;
 
 #[derive(Clone, Copy)]
+pub struct Tpm2Caps {
+    pub max_nv_index_size: u32,
+    pub max_nv_buffer_size: u32,
+}
+
+impl Default for Tpm2Caps {
+    fn default() -> Self {
+        Self {
+            max_nv_index_size: 0,
+            max_nv_buffer_size: 0,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct GlobalTpmData {
     pub provisioned: bool,
     pub last_tpm_cmd_code: Option<u32>,
@@ -20,6 +35,8 @@ pub struct GlobalTpmData {
     ca_cert_size: usize,
     ca_cert_pkcs8: [u8; PKCS8_DOCUMENT_MAX_LEN],
     ca_cert_pkcs8_size: usize,
+    // tpm2 caps
+    tpm2_caps: Option<Tpm2Caps>,
 }
 
 impl Default for GlobalTpmData {
@@ -40,6 +57,7 @@ impl GlobalTpmData {
             ca_cert_size: 0,
             ca_cert_pkcs8: [0; PKCS8_DOCUMENT_MAX_LEN],
             ca_cert_pkcs8_size: 0,
+            tpm2_caps: None,
         }
     }
 
@@ -123,6 +141,14 @@ impl GlobalTpmData {
         self.last_tpm_cmd_code = None;
         self.last_tpm_rsp_code = None;
         self.tpm_active = false;
+    }
+
+    pub fn tpm2_caps(&self) -> Option<Tpm2Caps> {
+        self.tpm2_caps
+    }
+
+    pub fn set_tpm2_caps(&mut self, tpm2_caps: &Tpm2Caps) {
+        self.tpm2_caps = Some(tpm2_caps.clone())
     }
 }
 

@@ -15,7 +15,8 @@ use crate::{
 use alloc::{slice, vec::Vec};
 use crypto::ek_cert::generate_ek_cert;
 use global::{
-    sensitive_data_cleanup, VtpmError, VtpmResult, GLOBAL_TPM_DATA, VTPM_MAX_BUFFER_SIZE,
+    sensitive_data_cleanup, tpm::Tpm2Caps, VtpmError, VtpmResult, GLOBAL_TPM_DATA,
+    VTPM_MAX_BUFFER_SIZE,
 };
 use ring::signature;
 
@@ -464,14 +465,28 @@ fn tpm2_nv_write(nvindex: u32, data: &[u8], max_nv_buffer: u32) -> VtpmResult {
     Ok(())
 }
 
-fn get_tpm2_caps() -> Option<(u32, u32)> {
-    let tpm2_caps = tpm2_get_caps()?;
-    let max_nv_index_size = *tpm2_caps.get(&TPM_PT_NV_INDEX_MAX)?;
-    let max_nv_buffer_size = *tpm2_caps.get(&TPM_PT_NV_BUFFER_MAX)?;
+fn get_tpm2_caps() -> VtpmResult {
+    let tpm2_caps = tpm2_get_caps();
+    if let Some(tpm2_caps) = tpm2_caps {
+        let max_nv_index_size = tpm2_caps
+            .get(&TPM_PT_NV_INDEX_MAX)
+            .ok_or_else(|| VtpmError::TpmLibError)?;
+        let max_nv_buffer_size = tpm2_caps
+            .get(&TPM_PT_NV_BUFFER_MAX)
+            .ok_or_else(|| VtpmError::TpmLibError)?;
 
-    // log::info!("max_nv_index_size=0x{0:x?}, max_nv_buffer_size=0x{1:x?}\n", max_nv_index_size, max_nv_buffer_size);
+        // log::info!("max_nv_index_size=0x{0:x?}, max_nv_buffer_size=0x{1:x?}\n", max_nv_index_size, max_nv_buffer_size);
 
-    Some((max_nv_index_size, max_nv_buffer_size))
+        let tpm2_caps = Tpm2Caps {
+            max_nv_index_size: *max_nv_index_size,
+            max_nv_buffer_size: *max_nv_buffer_size,
+        };
+
+        GLOBAL_TPM_DATA.lock().set_tpm2_caps(&tpm2_caps);
+        Ok(())
+    } else {
+        Err(VtpmError::TpmLibError)
+    }
 }
 
 pub fn tpm2_provision_ek() -> VtpmResult {
@@ -486,11 +501,13 @@ pub fn tpm2_provision_ek() -> VtpmResult {
         tpm2_started = true;
 
         // get caps
-        let caps = get_tpm2_caps();
-        if caps.is_none() {
+        if get_tpm2_caps().is_err() {
             break;
         }
-        let (max_nv_index_size, max_nv_buffer_size) = caps.unwrap();
+
+        let tpm2_caps = GLOBAL_TPM_DATA.lock().tpm2_caps().unwrap();
+        let max_nv_index_size = tpm2_caps.max_nv_index_size;
+        let max_nv_buffer_size = tpm2_caps.max_nv_buffer_size;
 
         // then Create ek_ec384
         if tpm2_create_ek_ec384().is_err() {
