@@ -8,10 +8,17 @@ use crate::{sensitive_data_cleanup, VtpmError, VtpmResult, TPM2_NV_SIZE};
 use crate::{PKCS8_DOCUMENT_MAX_LEN, VTPM_CA_CERT_MAX_SIZE};
 use alloc::vec::Vec;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Tpm2Caps {
     pub max_nv_index_size: u32,
     pub max_nv_buffer_size: u32,
+    pub manufacturer: u32,
+    pub vendor_1: u32,
+    pub vendor_2: u32,
+    pub vendor_3: u32,
+    pub vendor_4: u32,
+    pub version_1: u32,
+    pub version_2: u32,
 }
 
 impl Default for Tpm2Caps {
@@ -19,6 +26,13 @@ impl Default for Tpm2Caps {
         Self {
             max_nv_index_size: 0,
             max_nv_buffer_size: 0,
+            manufacturer: 0,
+            vendor_1: 0,
+            vendor_2: 0,
+            vendor_3: 0,
+            vendor_4: 0,
+            version_1: 0,
+            version_2: 0,
         }
     }
 }

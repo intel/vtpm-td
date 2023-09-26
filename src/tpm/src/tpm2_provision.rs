@@ -44,6 +44,13 @@ const TPM_ECC_NIST_P384: u8 = 0x04;
 
 const TPM_PT_NV_INDEX_MAX: u32 = 0x117;
 const TPM_PT_NV_BUFFER_MAX: u32 = 0x12c;
+const TPM_PT_MANUFACTURER: u32 = 0x105;
+const TPM_PT_VENDOR_STRING_1: u32 = 0x106;
+const TPM_PT_VENDOR_STRING_2: u32 = 0x107;
+const TPM_PT_VENDOR_STRING_3: u32 = 0x108;
+const TPM_PT_VENDOR_STRING_4: u32 = 0x109;
+const TPM_PT_FIRMWARE_VERSION_1: u32 = 0x10b;
+const TPM_PT_FIRMWARE_VERSION_2: u32 = 0x10c;
 
 // For ECC follow "TCG EK Credential Profile For TPM Family 2.0; Level 0"
 // Specification Version 2.3; Revision 2; 23 July 2020
@@ -470,16 +477,42 @@ fn get_tpm2_caps() -> VtpmResult {
     if let Some(tpm2_caps) = tpm2_caps {
         let max_nv_index_size = tpm2_caps
             .get(&TPM_PT_NV_INDEX_MAX)
-            .ok_or_else(|| VtpmError::TpmLibError)?;
+            .ok_or(VtpmError::TpmLibError)?;
         let max_nv_buffer_size = tpm2_caps
             .get(&TPM_PT_NV_BUFFER_MAX)
-            .ok_or_else(|| VtpmError::TpmLibError)?;
-
-        // log::info!("max_nv_index_size=0x{0:x?}, max_nv_buffer_size=0x{1:x?}\n", max_nv_index_size, max_nv_buffer_size);
+            .ok_or(VtpmError::TpmLibError)?;
+        let manufacturer = tpm2_caps
+            .get(&TPM_PT_MANUFACTURER)
+            .ok_or(VtpmError::TpmLibError)?;
+        let vendor_1 = tpm2_caps
+            .get(&TPM_PT_VENDOR_STRING_1)
+            .ok_or(VtpmError::TpmLibError)?;
+        let vendor_2 = tpm2_caps
+            .get(&TPM_PT_VENDOR_STRING_2)
+            .ok_or(VtpmError::TpmLibError)?;
+        let vendor_3 = tpm2_caps
+            .get(&TPM_PT_VENDOR_STRING_3)
+            .ok_or(VtpmError::TpmLibError)?;
+        let vendor_4 = tpm2_caps
+            .get(&TPM_PT_VENDOR_STRING_4)
+            .ok_or(VtpmError::TpmLibError)?;
+        let version_1 = tpm2_caps
+            .get(&TPM_PT_FIRMWARE_VERSION_1)
+            .ok_or(VtpmError::TpmLibError)?;
+        let version_2 = tpm2_caps
+            .get(&TPM_PT_FIRMWARE_VERSION_2)
+            .ok_or(VtpmError::TpmLibError)?;
 
         let tpm2_caps = Tpm2Caps {
             max_nv_index_size: *max_nv_index_size,
             max_nv_buffer_size: *max_nv_buffer_size,
+            manufacturer: *manufacturer,
+            vendor_1: *vendor_1,
+            vendor_2: *vendor_2,
+            vendor_3: *vendor_3,
+            vendor_4: *vendor_4,
+            version_1: *version_1,
+            version_2: *version_2,
         };
 
         GLOBAL_TPM_DATA.lock().set_tpm2_caps(&tpm2_caps);

@@ -5,6 +5,7 @@
 use alloc::vec;
 use der::asn1::{BitString, ObjectIdentifier, OctetString, SetOfVec, Utf8String};
 use der::{Any, Encodable, Tag};
+use global::GLOBAL_TPM_DATA;
 use ring::digest;
 use ring::rand::SystemRandom;
 use ring::signature::{EcdsaKeyPair, KeyPair};
@@ -111,22 +112,34 @@ fn gen_auth_key_identifier(ek_pub: &[u8]) -> Result<alloc::vec::Vec<u8>, Resolve
 }
 
 fn gen_subject_alt_name() -> Result<alloc::vec::Vec<u8>, ResolveError> {
+    let tpm2_caps = GLOBAL_TPM_DATA.lock().tpm2_caps().unwrap();
+
     let mut tcg_tpm_manufaturer = SetOfVec::new();
+    let mut manufacturer = alloc::vec::Vec::new();
+    manufacturer.extend_from_slice(&tpm2_caps.manufacturer.to_be_bytes());
     let _ = tcg_tpm_manufaturer.add(DistinguishedName {
         attribute_type: TCG_TPM_MANUFACTURER,
-        value: Utf8String::new("Intel").unwrap().into(),
+        value: Utf8String::new(manufacturer.as_slice()).unwrap().into(),
     });
 
     let mut tcg_tpm_model = SetOfVec::new();
+    let mut model = alloc::vec::Vec::new();
+    model.extend_from_slice(&tpm2_caps.vendor_1.to_be_bytes());
+    model.extend_from_slice(&tpm2_caps.vendor_2.to_be_bytes());
+    model.extend_from_slice(&tpm2_caps.vendor_3.to_be_bytes());
+    model.extend_from_slice(&tpm2_caps.vendor_4.to_be_bytes());
     let _ = tcg_tpm_model.add(DistinguishedName {
         attribute_type: TCG_TPM_MODEL,
-        value: Utf8String::new("vTPM").unwrap().into(),
+        value: Utf8String::new(model.as_slice()).unwrap().into(),
     });
 
     let mut tcg_tpm_version = SetOfVec::new();
+    let mut version = alloc::vec::Vec::new();
+    version.extend_from_slice(&tpm2_caps.version_1.to_be_bytes());
+    version.extend_from_slice(&tpm2_caps.version_2.to_be_bytes());
     let _ = tcg_tpm_version.add(DistinguishedName {
         attribute_type: TCG_TPM_VERSION,
-        value: Utf8String::new("00010000").unwrap().into(),
+        value: Utf8String::new(version.as_slice()).unwrap().into(),
     });
 
     let sub_alt_name = vec![tcg_tpm_manufaturer, tcg_tpm_model, tcg_tpm_version];
