@@ -52,6 +52,8 @@ const TPM_PT_VENDOR_STRING_4: u32 = 0x109;
 const TPM_PT_FIRMWARE_VERSION_1: u32 = 0x10b;
 const TPM_PT_FIRMWARE_VERSION_2: u32 = 0x10c;
 
+const ECP384_PUBKEY_MAX_HALF_SIZE: usize = 48;
+
 // For ECC follow "TCG EK Credential Profile For TPM Family 2.0; Level 0"
 // Specification Version 2.3; Revision 2; 23 July 2020
 // Section 2.2.1.5.1
@@ -279,27 +281,47 @@ pub fn tpm2_get_ek_pub() -> Vec<u8> {
 
     // TPM2B_PUBLIC structure
     let tpm2b_public: &[u8] = &out_parms[..{ size as usize + U16_SIZE }];
-    let tpm2b_public_len = tpm2b_public.len();
-    // length of ECP384 is 2 * (2 + 48)
-    let unique_len: usize = 2 * (2 + 48);
-    if tpm2b_public_len < unique_len {
-        log::error!("Invalid unique of ECP384\n");
-        return Vec::new();
-    }
+
+    // skip to TPM2_PUBLIC.unique.
+    // size(2) + algoType(2) + nameAlg(2) + attributes(4) + authPolicy(2+48) + symmetric(6) + scheme(4) + curveId(2)
+    let mut offset = 72;
+    let unique: &[u8] = &tpm2b_public[offset..];
+
+    // log::info!("unique: {:02x?}\n", unique);
 
     let mut out_public: Vec<u8> = Vec::new();
 
     out_public.extend_from_slice(&TPM_ECC_NIST_P384.to_be_bytes());
 
-    // x of eccpoint
-    let x_offset = tpm2b_public_len - unique_len + 2;
-    out_public.extend_from_slice(&tpm2b_public[x_offset..x_offset + 48]);
+    let x_size = u16::from_be_bytes([unique[0], unique[1]]) as usize;
+    if x_size > ECP384_PUBKEY_MAX_HALF_SIZE {
+        log::error!("Invalid x_size ({:?})\n", x_size);
+        return Vec::new();
+    }
 
-    // y of eccpoint
-    let y_offset = x_offset + 48 + 2;
-    out_public.extend_from_slice(&tpm2b_public[y_offset..]);
+    for _ in 0..(ECP384_PUBKEY_MAX_HALF_SIZE - x_size) {
+        out_public.extend_from_slice(&0_u8.to_be_bytes());
+    }
+    out_public.extend_from_slice(&unique[2..2 + x_size]);
+    offset = 2 + x_size;
 
-    // log::info!("public_key {:x} {:02x?}\n", out_public.len(), out_public);
+    let y_size = u16::from_be_bytes([unique[offset], unique[offset + 1]]) as usize;
+    if y_size > ECP384_PUBKEY_MAX_HALF_SIZE {
+        log::error!("Invalid y_size ({:?})\n", y_size);
+        return Vec::new();
+    }
+
+    for _ in 0..(ECP384_PUBKEY_MAX_HALF_SIZE - y_size) {
+        out_public.extend_from_slice(&0_u8.to_be_bytes());
+    }
+    out_public.extend_from_slice(&unique[offset + 2..offset + 2 + y_size]);
+
+    log::info!(
+        "ecp384 public_key x_size={0:?}, y_size={1:?}\n",
+        x_size,
+        y_size
+    );
+    // log::info!("public_key {:02x?}\n", out_public);
 
     out_public.to_vec()
 }
