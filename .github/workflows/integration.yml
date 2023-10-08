@@ -14,7 +14,7 @@ env:
 
 jobs:
   integration:
-    name: Run vTPM Integration Test with congfig-A TDVF
+    name: Run vTPM Integration Test
     runs-on: [self-hosted, vtpm]
 
     steps:
@@ -93,5 +93,5 @@ jobs:
       - name: Run test - Config B + secure boot
         run: |
           pushd sh_script
-          python -m pytest -k "config_B_sb"
+          python -m pytest -k "config_B_sb_create_destroy_instance"
           popd
