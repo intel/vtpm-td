@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-test_vtpm.py
+integration_test.py
 
 Readme:
 --------------
@@ -18,15 +18,15 @@ Recommend to use python 3.10
 --------------
 $ python3 -m venv .venv
 $ source .venv/bin/activate
-$ (.venv) pip install pytest psutil paramiko
-$ (.venv) vim pyproject.toml
+$ (.venv) pip install pytest psutil paramiko pytest-html
+$ (.venv) vim conf/pyproject.toml
 $ (.venv) pytest
 
 """
 
 import time
 import logging
-from vtpmtool import VtpmTool, vtpm_context
+from utils import VtpmTool, vtpm_context
 
 LOG = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ def test_config_A_launch_tdvf_without_vtpm():
 
 def test_config_A_launch_tdvf_with_vtpm_shell():
     with vtpm_context() as ctx:
+        ctx.wait_tools_run_seconds = 30
         ctx.generate_startup_into_vtpm_test_img(
             [
                 "fs0:",
@@ -71,27 +72,6 @@ def test_config_A_launch_tdvf_with_vtpm_shell():
     # check RTMR1 and RTMR2 - are equal with fixed value
     expected_value = "879606558AC3776B815615CE42F361976430D931D5DA09D77E0C5EC08CC76D00F5D6CF5EB704B9ED19FF7CCCF47C9083"
     assert rtmr1 == rtmr2 and rtmr1 == expected_value    
-    
-def test_config_A_reset_tdvm():
-    with vtpm_context() as ctx:
-        ctx.wait_tools_run_seconds = 30
-        ctx.generate_startup_into_vtpm_test_img(
-            ["fs0:", "Tcg2DumpLog.efi > event0.log", "reset"]
-        )
-        ctx.start_vtpm_td()
-        ctx.execute_qmp()
-        ctx.start_user_td()  # user td will be terminated because `reset` is not supported
-        
-        ctx.generate_startup_into_vtpm_test_img(
-            ["fs0:", "Tcg2DumpLog.efi > event1.log", "reset"]
-        )
-        ctx.start_user_td()
-        ctx.terminate_all_tds()
-        content0 = ctx.read_log(filename="event0.log", auto_delete=False)
-        content1 = ctx.read_log(filename="event1.log", auto_delete=False)
-        
-        assert content0 and Utils.EVENT_ERR_FLAG not in content0
-        assert content1 and Utils.EVENT_ERR_FLAG not in content1
 
 def test_config_A_2_vtpm_2_user(count_overwrite: int = None):
     total = count_overwrite or 2
@@ -109,6 +89,7 @@ def test_config_A_2_vtpm_2_user(count_overwrite: int = None):
                 "acpidump.efi -n tdtk > acpidump.log",
             ],
         )
+        env.wait_tools_run_seconds = 30
         env.start_vtpm_td()
         env.execute_qmp()
 
@@ -139,17 +120,6 @@ def test_config_A_2_vtpm_2_user(count_overwrite: int = None):
 def test_config_A_10_vtpm_10_user():
     test_config_A_2_vtpm_2_user(count_overwrite=10)
 
-def test_config_A_send_create_command_twice_with_qmp():
-    with vtpm_context() as ctx:
-        ctx.wait_tools_run_seconds = 30
-        ctx.generate_startup_into_vtpm_test_img(["fs0:", "Tcg2DumpLog.efi > event.log"])
-        ctx.start_vtpm_td()
-        ctx.execute_qmp()
-        ctx.execute_qmp()
-        ctx.start_user_td()
-        event_log = ctx.read_log(filename="event.log")
-    assert event_log and Utils.EVENT_ERR_FLAG not in event_log
-
 class Utils:
     EVENT_ERR_FLAG = "ERROR: Locate Tcg2Protocol - Not Found"
     TDTK_FLAG = "TDTK checks passed!"
@@ -163,6 +133,153 @@ class Utils:
             return ""
         rtmr_end = s.index("\n", rtmr_start)
         return s[rtmr_start + 7 : rtmr_end]
+
+def test_config_A_verify_CA_and_EK_certificate():
+    export_ca_cmd = '''
+                  #!/bin/bash\n
+                  CA_CERT_NV_INDEX=0x01c00100\n
+                  NV_SIZE=`tpm2_nvreadpublic $CA_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert.bin $CA_CERT_NV_INDEX'''
+    
+    export_ek_cmd = '''
+                  #!/bin/bash\n
+                  EK_CERT_NV_INDEX=0x01c00016\n
+                  NV_SIZE=`tpm2_nvreadpublic $EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
+                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ek_cert.bin $EK_CERT_NV_INDEX'''
+
+    convert_ca2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    convert_ek2pem_cmd = "openssl x509 -inform DER -in ek_cert.bin -outform PEM -out ek_cert.pem"
+    verify_ca_cmd = "openssl verify -CAfile ca_cert.pem ca_cert.pem"
+    verify_ek_cmd = "openssl verify -CAfile ca_cert.pem ek_cert.pem"
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+
+        LOG.debug(export_ca_cmd)
+        runner = ctx.exec_ssh_command(export_ca_cmd)
+        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1])
+        
+        LOG.debug(export_ek_cmd)
+        runner = ctx.exec_ssh_command(export_ek_cmd)
+        assert runner[1] == "", "Failed to export EK certificate: {}".format(runner[1])  
+        
+        LOG.debug(convert_ca2pem_cmd)
+        runner = ctx.exec_ssh_command(convert_ca2pem_cmd)
+        assert runner[1] == "", "Failed to convert CA from der to pem: {}".format(runner[1]) 
+        
+        LOG.debug(convert_ek2pem_cmd)
+        runner = ctx.exec_ssh_command(convert_ek2pem_cmd)
+        assert runner[1] == "", "Failed to convert EK from der to pem: {}".format(runner[1]) 
+        
+        LOG.debug(verify_ca_cmd)
+        runner = ctx.exec_ssh_command(verify_ca_cmd)
+        assert runner[1] == "", "Verify CA fail: {}".format(runner[1])  
+        
+        LOG.debug(verify_ek_cmd)
+        runner = ctx.exec_ssh_command(verify_ek_cmd)
+        assert runner[1] == "", "Verify EK fail: {}".format(runner[1])  
+      
+        ctx.terminate_all_tds()
+
+def test_config_A_create_instance_twice():
+    cmd = f'tpm2_pcrread sha256'
+    
+    with vtpm_context() as ctx:
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.execute_qmp()
+        
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        ctx.terminate_all_tds()
+
+def test_config_A_create_destroy_instance():
+    cmd = f'tpm2_pcrread sha256'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        # Create instance
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        
+        # Destroy instance
+        ctx.execute_qmp(is_create=False)
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM is still work after detroy instance" 
+        
+        ctx.terminate_user_td()
+        # Create instance
+        ctx.execute_qmp()
+        
+        LOG.debug(cmd)
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        ctx.terminate_all_tds()
+
+def test_config_A_reset_usertd():
+    cmd = f'tpm2_pcrread sha256'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        # Create instance
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        runner1 = ctx.exec_ssh_command(cmd)
+        assert runner1[1] == "", "Failed to execute remote command" 
+        ctx.terminate_user_td()
+        
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        runner2 = ctx.exec_ssh_command(cmd)
+        assert runner2[1] == "", "Failed to execute remote command" 
+        ctx.terminate_user_td()
+        
+        # Compare the pcr values of 2 times, should be same
+        assert runner1[0] == runner2[0], "First time pcr value is not equal the second time's"
+            
+    ctx.terminate_all_tds()
+
+def test_config_A_kill_vtpm_td():
+    """
+    1. Create TDVM with vTPM device - vTPM TD and user TD should be running
+    2. Kill vtpm-td, check user TD status, tpm command should not work
+    3. Relaunch vtpm-td and create instance, check user TD status, tpm command should not work
+    """
+    cmd = f'tpm2_pcrread sha256'
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        ctx.pcr_replay()
+        
+        ctx.terminate_vtpm_td()
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM is still work after kill vTPM" 
+        
+        # Relaunch vtpm-td and create instance
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        
+        LOG.debug(cmd)
+        runner = ctx.exec_ssh_command(cmd)
+        assert runner[1] != "", "vTPM is still work after kill vTPM" 
+
+        ctx.terminate_all_tds()
 
 def test_config_A_vtpm_command_nvread():
     """
