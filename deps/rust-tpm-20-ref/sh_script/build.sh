@@ -4,6 +4,7 @@ SHA256="ALG_NO"
 SHA384="ALG_NO"
 SHA512="ALG_NO"
 BUILD_OPT="build"
+RENAME_SYMBOL=0
 
 function clean() {
     pushd smallc
@@ -29,6 +30,7 @@ function build() {
     make init
     make all
     make install
+    [[ ${RENAME_SYMBOL} == 1 ]] && objcopy --redefine-syms=../sh_script/rename_smallc_symbols lib/libsmallc.a
     popd
 
     pushd openssl-stubs
@@ -73,6 +75,10 @@ while [[ $# -gt 0 ]]; do
                         ;;
                 esac
             done
+            shift
+            ;;
+        -rename_symbol)
+            RENAME_SYMBOL=1
             shift
             ;;
         -clean)

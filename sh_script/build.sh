@@ -37,15 +37,19 @@ function clean() {
 
 function build() {
   VTPM_FEATURES="td-logger/tdx"
+  RENAME_SYMBOL_FLAG=""
 
   [[ "${ALGO}" != "" ]] && VTPM_FEATURES+=",${ALGO}"
 
   [[ ${ENABLE_BENCHMARK} == 1 ]] && VTPM_FEATURES+=",test_heap_size,test_stack_size"
 
-  [[ "${REMOTE_ATTESTATION}" == "on" ]] && VTPM_FEATURES+=",remote-attestation"
+  if [ "${REMOTE_ATTESTATION}" == "on" ]; then
+    VTPM_FEATURES+=",remote-attestation"
+    RENAME_SYMBOL_FLAG="-rename_symbol"
+  fi
 
   pushd deps/rust-tpm-20-ref
-  /bin/bash sh_script/build.sh -algo ${ALGO}
+  /bin/bash sh_script/build.sh -algo ${ALGO} ${RENAME_SYMBOL_FLAG}
   popd
 
   pushd deps/td-shim/devtools/td-layout-config

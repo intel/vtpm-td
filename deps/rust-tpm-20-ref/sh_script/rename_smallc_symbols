@@ -1,0 +1,4 @@
+memset smallc_memset 
+abort smallc_abort 
+__stack_chk_guard smallc__stack_chk_guard 
+__stack_chk_fail smallc__stack_chk_fail 
