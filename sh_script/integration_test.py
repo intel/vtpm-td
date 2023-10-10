@@ -137,12 +137,23 @@ class Utils:
 def test_config_A_verify_CA_and_EK_certificate():
     export_ca_cmd = '''
                   #!/bin/bash\n
-                  CA_CERT_NV_INDEX=0x01c00100\n
-                  NV_SIZE=`tpm2_nvreadpublic $CA_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
-                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert.bin $CA_CERT_NV_INDEX'''
+                  rm -rf ca_cert*\n
+                  NVINFO=`tpm2_nvreadpublic`\n
+
+                  for i in {0..5}; do\n
+                    INDEX=0x1c0010$i\n
+                    if [[ $NVINFO == *"$INDEX"* ]]\n
+                    then\n
+                        NV_SIZE=`tpm2_nvreadpublic $INDEX | grep size |  awk '{print $2}'`\n
+                        tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert$i.bin $INDEX\n
+                        cat ca_cert$i.bin >> ca_cert.bin\n
+                    fi\n
+                  done\n
+                  '''                  
     
     export_ek_cmd = '''
                   #!/bin/bash\n
+                  rm -rf ek_cert*\n 
                   EK_CERT_NV_INDEX=0x01c00016\n
                   NV_SIZE=`tpm2_nvreadpublic $EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
                   tpm2_nvread --hierarchy owner --size $NV_SIZE --output ek_cert.bin $EK_CERT_NV_INDEX'''
@@ -624,12 +635,23 @@ def test_config_B_no_sb_launch_tdvf_without_vtpm():
 def test_config_B_no_sb_verify_CA_and_EK_certificate():
     export_ca_cmd = '''
                   #!/bin/bash\n
-                  CA_CERT_NV_INDEX=0x01c00100\n
-                  NV_SIZE=`tpm2_nvreadpublic $CA_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
-                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert.bin $CA_CERT_NV_INDEX'''
+                  rm -rf ca_cert*\n
+                  NVINFO=`tpm2_nvreadpublic`\n
+
+                  for i in {0..5}; do\n
+                    INDEX=0x1c0010$i\n
+                    if [[ $NVINFO == *"$INDEX"* ]]\n
+                    then\n
+                        NV_SIZE=`tpm2_nvreadpublic $INDEX | grep size |  awk '{print $2}'`\n
+                        tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert$i.bin $INDEX\n
+                        cat ca_cert$i.bin >> ca_cert.bin\n
+                    fi\n
+                  done\n
+                  '''                  
     
     export_ek_cmd = '''
                   #!/bin/bash\n
+                  rm -rf ek_cert*\n 
                   EK_CERT_NV_INDEX=0x01c00016\n
                   NV_SIZE=`tpm2_nvreadpublic $EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
                   tpm2_nvread --hierarchy owner --size $NV_SIZE --output ek_cert.bin $EK_CERT_NV_INDEX'''
@@ -1064,12 +1086,23 @@ def test_config_B_sb_launch_tdvf_without_vtpm_grub_boot():
 def test_config_B_sb_verify_CA_and_EK_certificate():
     export_ca_cmd = '''
                   #!/bin/bash\n
-                  CA_CERT_NV_INDEX=0x01c00100\n
-                  NV_SIZE=`tpm2_nvreadpublic $CA_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
-                  tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert.bin $CA_CERT_NV_INDEX'''
+                  rm -rf ca_cert*\n
+                  NVINFO=`tpm2_nvreadpublic`\n
+
+                  for i in {0..5}; do\n
+                    INDEX=0x1c0010$i\n
+                    if [[ $NVINFO == *"$INDEX"* ]]\n
+                    then\n
+                        NV_SIZE=`tpm2_nvreadpublic $INDEX | grep size |  awk '{print $2}'`\n
+                        tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert$i.bin $INDEX\n
+                        cat ca_cert$i.bin >> ca_cert.bin\n
+                    fi\n
+                  done\n
+                  '''                  
     
     export_ek_cmd = '''
                   #!/bin/bash\n
+                  rm -rf ek_cert*\n 
                   EK_CERT_NV_INDEX=0x01c00016\n
                   NV_SIZE=`tpm2_nvreadpublic $EK_CERT_NV_INDEX | grep size |  awk '{print $2}'`\n
                   tpm2_nvread --hierarchy owner --size $NV_SIZE --output ek_cert.bin $EK_CERT_NV_INDEX'''
