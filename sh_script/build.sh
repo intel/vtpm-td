@@ -7,6 +7,7 @@
 ALGO="sha256,sha384"
 BUILD_OPT="build"
 ENABLE_BENCHMARK=0
+REMOTE_ATTESTATION="on"
 
 usage() {
    echo "$0 [options]"
@@ -14,6 +15,7 @@ usage() {
    echo " -algo [sha256,sha384,sha512] Supported hash algorithm. (Default supported algorithms are sha256 and sha384)"
    echo " -clean Clean the build objects"
    echo " -bench Enable benchmark. (Default is disabled.)"
+   echo " -attest [on|off] Enable remote attestation. (Default is on.)"
   exit 1
 }
 
@@ -34,11 +36,13 @@ function clean() {
 }
 
 function build() {
-  SUPPORTED_HASH_ALGO=""
-  [[ "${ALGO}" != "" ]] && SUPPORTED_HASH_ALGO=",${ALGO}"
+  VTPM_FEATURES="td-logger/tdx"
 
-  BENCHMARK_FEATURES=""
-  [[ ${ENABLE_BENCHMARK} == 1 ]] && BENCHMARK_FEATURES=",test_heap_size,test_stack_size"
+  [[ "${ALGO}" != "" ]] && VTPM_FEATURES+=",${ALGO}"
+
+  [[ ${ENABLE_BENCHMARK} == 1 ]] && VTPM_FEATURES+=",test_heap_size,test_stack_size"
+
+  [[ "${REMOTE_ATTESTATION}" == "on" ]] && VTPM_FEATURES+=",remote-attestation"
 
   pushd deps/rust-tpm-20-ref
   /bin/bash sh_script/build.sh -algo ${ALGO}
@@ -57,7 +61,7 @@ function build() {
 
   cargo xbuild \
     --target x86_64-unknown-none \
-    --features=td-logger/tdx${SUPPORTED_HASH_ALGO}${BENCHMARK_FEATURES} \
+    --features=${VTPM_FEATURES} \
     -p vtpmtd --release
 
   pushd deps/td-shim
@@ -85,6 +89,10 @@ while [[ $1 != "" ]]; do
       ;;
     -clean)
       BUILD_OPT="clean"
+      shift
+      ;;
+    -attest)
+      REMOTE_ATTESTATION=$2
       shift
       ;;
     -bench)
