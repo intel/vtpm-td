@@ -13,6 +13,3 @@
 [submodule "deps/rust-tpm-20-ref/smallc/musl"]
 	path = deps/rust-tpm-20-ref/smallc/musl
 	url = https://git.musl-libc.org/git/musl
-[submodule "deps/linux-sgx"]
-	path = deps/linux-sgx
-	url = https://github.com/intel/linux-sgx.git
