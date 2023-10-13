@@ -106,7 +106,7 @@ $QEMU \
   -name debug-threads=on,process=vtpm-td \
   -cpu host,host-phys-bits,-kvm-steal-time,-arch-lbr \
   -smp 1 -m $MEM \
-  -object tdx-guest,id=tdx,debug=on,vtpm-type=server,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-123.sock -qmp unix:/tmp/qmp-sock-vtpm,server,nowait \
+  -object tdx-guest,id=tdx,vtpm-type=server,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-123.sock -qmp unix:/tmp/qmp-sock-vtpm,server,nowait \
   -object memory-backend-memfd-private,id=ram1,size=${MEM} \
   -machine q35,kernel_irqchip=split,confidential-guest-support=tdx,memory-backend=ram1 \
   -bios ${BIOS} \
@@ -143,7 +143,7 @@ $QEMU \
   -cpu host,host-phys-bits,-kvm-steal-time,-arch-lbr \
   -smp 1 \
   -m ${MEM} \
-  -object tdx-guest,id=tdx,debug=on,vtpm-type=client,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-123.sock \
+  -object tdx-guest,id=tdx,vtpm-type=client,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-123.sock \
   -object memory-backend-memfd-private,id=ram2,size=${MEM} \
   -machine q35,kernel_irqchip=split,confidential-guest-support=tdx,memory-backend=ram2 \
   -bios $BIOS \

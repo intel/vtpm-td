@@ -83,7 +83,7 @@ process_args() {
                         -name process=user-td-ci,debug-threads=on \
                         -smp 1 \
                         -m ${MEM} \
-                        -object tdx-guest,id=tdx,debug=on,vtpm-type=client,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-server-${USERTD_ID}.sock \
+                        -object tdx-guest,id=tdx,vtpm-type=client,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-server-${USERTD_ID}.sock \
                         -object memory-backend-memfd-private,id=usertd-ram2-${USERTD_ID},size=${MEM} \
                         -bios ${BIOS} \
                         -machine q35,kernel_irqchip=split,confidential-guest-support=tdx,memory-backend=usertd-ram2-${USERTD_ID} \
