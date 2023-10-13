@@ -57,7 +57,7 @@ process_args() {
             -name debug-threads=on,process=vtpm-td-ci \
             -cpu host,host-phys-bits,-kvm-steal-time,-arch-lbr \
             -smp 1 -m ${MEM} \
-            -object tdx-guest,id=tdx,debug=on,vtpm-type=server,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-server-${USERTD_ID}.sock \
+            -object tdx-guest,id=tdx,vtpm-type=server,vtpm-userid=${USERTD_ID},vtpm-path=unix:/tmp/vtpm-server-${USERTD_ID}.sock \
             -qmp unix:/tmp/qmp-sock-vtpm-${USERTD_ID},server,nowait \
             -object memory-backend-memfd-private,id=vtpm-ram1-${USERTD_ID},size=${MEM} \
             -machine q35,kernel_irqchip=split,confidential-guest-support=tdx,memory-backend=vtpm-ram1-${USERTD_ID} \
