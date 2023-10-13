@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use alloc::vec::Vec;
-use attestation::get_quote;
 use crypto::{
     ek_cert::generate_ca_cert,
     resolve::{generate_ecdsa_keypairs, ResolveError},
@@ -14,6 +13,7 @@ use ring::{
     digest,
     signature::{EcdsaKeyPair, KeyPair},
 };
+use tdx_attest::td_quote::tdx_get_quote;
 
 fn get_td_quote(data: &[u8]) -> Result<Vec<u8>, VtpmError> {
     // first calc the hash of ek_pub
@@ -30,15 +30,7 @@ fn get_td_quote(data: &[u8]) -> Result<Vec<u8>, VtpmError> {
     }
     let td_report = td_report.unwrap();
 
-    // at last call get_quote
-    let td_quote = get_quote(td_report.as_bytes()).map_err(|_| VtpmError::CaCertError);
-
-    if td_quote.is_err() {
-        log::error!("Failed to get td_quote.\n");
-        return Err(VtpmError::CaCertError);
-    }
-
-    td_quote
+    tdx_get_quote(td_report.as_bytes())
 }
 
 pub fn gen_tpm2_ca_cert() -> VtpmResult {

@@ -11,6 +11,7 @@ members = [
     "src/crypto",
     "src/protocol",
     "src/spdm",
+    "src/tdx_attest",
     "src/tdtunnel",
     "src/tpm",
     "src/vtpmtd",

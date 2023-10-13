@@ -743,6 +743,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tdx_attest"
+version = "0.1.0"
+dependencies = [
+ "global",
+ "log",
+ "td-payload",
+ "tdx-tdcall",
+]
+
+[[package]]
 name = "time"
 version = "0.3.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -761,7 +771,6 @@ checksum = "7300fbefb4dadc1af235a9cef3737cea692a9d97e1b9cbcd4ebdae6f8868e6fb"
 name = "tpm"
 version = "0.1.0"
 dependencies = [
- "attestation",
  "crypto",
  "eventlog",
  "global",
@@ -771,6 +780,7 @@ dependencies = [
  "rust-tpm-20-ref",
  "spin 0.9.8",
  "tdx-tdcall",
+ "tdx_attest",
  "time",
  "x86_64",
 ]
