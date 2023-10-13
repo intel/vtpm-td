@@ -1,0 +1,12 @@
+[package]
+name = "tdx_attest"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+global = { path = "../global" }
+log = "0.4.13"
+td-payload = { path = "../../deps/td-shim/td-payload", features = ["tdx"] }
+tdx-tdcall = { path = "../../deps/td-shim/tdx-tdcall" }
