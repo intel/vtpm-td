@@ -5,7 +5,6 @@ default-members = [
     "src/vtpmtd",
 ]
 members = [
-    "src/attestation",
     "src/eventlog",
     "src/global",
     "src/crypto",

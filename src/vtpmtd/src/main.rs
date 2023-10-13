@@ -67,9 +67,6 @@ pub extern "C" fn _start(hob: u64, payload: u64) -> ! {
 
     arch::init::pre_init(hob, &layout);
 
-    // Init internal heap
-    attestation::attest_init_heap();
-
     // Run the global constructors
     init(payload);
 
