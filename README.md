@@ -169,3 +169,16 @@ After booting up to TD guest OS, vTPM features can be used as normal TPM. It can
 * [tpm2-tools](doc/verify-vtpm-features.md#tpm2-tools)
 * [Linux IMA (Integrity Measurement Architecture)](doc/verify-vtpm-features.md#linux-ima)
 * [Keylime](doc/verify-vtpm-features.md#keylime)
+
+## Reproducible Build
+
+Reproducible build of vtpm-td binary requires same system user and
+source code path (see https://github.com/intel/vtpm-td/issues/101).
+
+The [Dockerfile](./Dockerfile) is provided to build the docker image with
+the vtpm-td compilation environment for reproducible build. You can use the
+[docker.sh](./sh_script/docker.sh) to build and run the docker container:
+
+```
+./sh_script/docker.sh -f ./
+```
