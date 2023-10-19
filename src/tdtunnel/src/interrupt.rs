@@ -6,9 +6,8 @@ use paste::paste;
 
 use core::sync::atomic::{AtomicU8, Ordering};
 pub use td_exception::*;
+use td_payload::arch::apic::{disable, enable_and_hlt};
 use td_payload::interrupt_handler_template;
-use tdx_tdcall::tdx::tdvmcall_halt;
-
 pub const NOTIFY_VALUE_CLEAR: u8 = 0;
 pub const NOTIFY_VALUE_SET: u8 = 1;
 
@@ -41,13 +40,12 @@ macro_rules! register_interrupt {
                 // log::info!("Calling {:?}", stringify!([<wait_for_vmm_notification_ $name:lower>]));
 
                 while([<NOTIFY_ $name:upper>].load(Ordering::SeqCst) != NOTIFY_VALUE_SET){
-                    x86_64::instructions::interrupts::enable();
-                    tdvmcall_halt();
+                    enable_and_hlt();
                     if ([<NOTIFY_ $name:upper>].load(Ordering::SeqCst) == NOTIFY_VALUE_SET){
                         break;
                     }
                 }
-                x86_64::instructions::interrupts::disable();
+                disable();
 
                 // log::debug!("============== WOKE UP ============\n");
                 // log::debug!("NOTIFY_WAIT_FOR_REQUEST:{:?}\n", NOTIFY_WAIT_FOR_REQUEST);
