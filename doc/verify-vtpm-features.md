@@ -32,3 +32,59 @@ measurement records protected with vTPM from Keylime agent deployed inside TDVM 
 know good values provided by trusted admin or third parties.
 
 Note: Keylime must include the patch#88e033c3a which fixes the SHA1 issue for TPM PCR16.
+
+## Quote Verification
+### Precondition
+Refer to [Whitepaper: Linux* Stacks for Intel® Trust Domain Extension 1.0](https://www.intel.com/content/www/us/en/content-details/783067/whitepaper-linux-stacks-for-intel-trust-domain-extension-1-0.html) to set up Attestation environment.
+- Follow chapter 4.3.2 to "Set Up DCAP Repo(Host)"
+- Follow chapter 4.3.3 to "Set Up PCCS"
+- Follow chapter 4.3.4 to "Set Up DCAP on Host"
+- Follow chapter 4.3.6 to build quote verification sample application
+
+### Export CA certificate from vTPM NV
+Run below script on guest OS to export CA.
+```
+ #!/bin/bash
+
+rm -rf ca_cert*
+NVINFO=`tpm2_nvreadpublic`
+
+for i in {0..5}; do
+      INDEX=0x1c0010$i
+      if [[ $NVINFO == *"$INDEX"* ]]
+      then
+      NV_SIZE=`tpm2_nvreadpublic $INDEX | grep size |  awk '{print $2}'`
+      tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert$i.bin $INDEX
+      cat ca_cert$i.bin >> ca_cert.bin
+      fi
+done
+```
+### Convert CA certificate format from der to pem
+Run below script on guest OS to export CA.
+```
+openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem
+```
+### Export quote data from CA with python script
+Run below python script to export quote.data from CA.
+```
+// pip install pyopenssl
+import OpenSSL
+
+quote_extension_index=2
+
+cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open("ca_cert.pem").read())
+certIssue = cert.get_issuer()
+
+with open("quote.data", "wb") as fp:
+    fp.write(cert.get_extension(quote_extension_index).get_data())
+    print("quote data export successfully: quote.data")
+```
+### Copy quote.date from guest OS to host
+```
+virt-copy-out -a <guest_image_name> <directory_in_TDVM_contains_quote.data>
+<host_directory>
+```
+### Verify quote date with sample application
+```
+./app -quote <PATH>/quote.data
+```
