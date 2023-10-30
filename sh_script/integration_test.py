@@ -18,14 +18,16 @@ Recommend to use python 3.10
 --------------
 $ python3 -m venv .venv
 $ source .venv/bin/activate
-$ (.venv) pip install pytest psutil paramiko pytest-html
+$ (.venv) pip install pytest psutil paramiko pyopenssl pytest-html
 $ (.venv) vim conf/pyproject.toml
 $ (.venv) pytest
 
 """
 
+import os
 import time
 import logging
+import OpenSSL
 from utils import VtpmTool, vtpm_context
 
 LOG = logging.getLogger(__name__)
@@ -191,6 +193,87 @@ def test_config_A_verify_CA_and_EK_certificate():
         LOG.debug(verify_ek_cmd)
         runner = ctx.exec_ssh_command(verify_ek_cmd)
         assert runner[1] == "", "Verify EK fail: {}".format(runner[1])  
+      
+        ctx.terminate_all_tds()
+
+def test_config_A_quote_verification():
+    quote_extension_index = 2
+    
+    export_ca_cmd = '''
+                  #!/bin/bash\n
+                  rm -rf ca_cert*\n
+                  NVINFO=`tpm2_nvreadpublic`\n
+
+                  for i in {0..5}; do\n
+                    INDEX=0x1c0010$i\n
+                    if [[ $NVINFO == *"$INDEX"* ]]\n
+                    then\n
+                        NV_SIZE=`tpm2_nvreadpublic $INDEX | grep size |  awk '{print $2}'`\n
+                        tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert$i.bin $INDEX\n
+                        cat ca_cert$i.bin >> ca_cert.bin\n
+                    fi\n
+                  done\n
+                  '''                  
+
+    convert_ca2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    verify_ca_cmd = "openssl verify -CAfile ca_cert.pem ca_cert.pem"
+    
+
+    with vtpm_context() as ctx: 
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+
+        LOG.debug(export_ca_cmd)
+        runner = ctx.exec_ssh_command(export_ca_cmd)
+        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1])
+        
+        LOG.debug(convert_ca2pem_cmd)
+        runner = ctx.exec_ssh_command(convert_ca2pem_cmd)
+        assert runner[1] == "", "Failed to convert CA from der to pem: {}".format(runner[1]) 
+
+        LOG.debug(verify_ca_cmd)
+        runner = ctx.exec_ssh_command(verify_ca_cmd)
+        assert runner[1] == "", "Verify CA fail: {}".format(runner[1])
+        
+        cwd = os.getcwd()
+        copy_ca_to_host_cmd = f"virt-copy-out -a '{ctx.guest_img}' '/root/ca_cert.pem' '{ctx.quote_verification_sample_path}'\n"
+        ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
+        quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app") 
+        
+        ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
+        quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app")
+        quote_path = os.path.join(ctx.quote_verification_sample_path, "quote.data")
+        verf_log_path = os.path.join(ctx.quote_verification_sample_path, "verification.log")
+        
+        # Clean old ca file before copy
+        if os.path.exists(ca_host_path):
+            os.remove(ca_host_path)
+        
+        if os.path.exists(quote_path):
+            os.remove(quote_path)
+            
+        if os.path.exists(verf_log_path):
+            os.remove(verf_log_path) 
+        
+        LOG.debug(copy_ca_to_host_cmd)
+        os.system(copy_ca_to_host_cmd)
+        
+        LOG.debug("Export quote form CA\n")
+        cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open(ca_host_path).read())
+        
+        with open("quote.data", "wb") as fp:
+            fp.write(cert.get_extension(quote_extension_index).get_data())
+            LOG.debug("quote data export successfully: quote.data")
+            
+        os.chdir(ctx.quote_verification_sample_path)
+        LOG.debug(f"{quote_verf_app_path} --quote {quote_path}")    
+        os.system(f"{quote_verf_app_path} --quote {quote_path} > {verf_log_path}")
+        os.chdir(cwd)
+        
+        with open(verf_log_path, "r") as log:
+            assert "[APP] Info: App: Verification completed successfully." in log.read(), "Quote verification fail."
       
         ctx.terminate_all_tds()
 
@@ -692,6 +775,87 @@ def test_config_B_no_sb_verify_CA_and_EK_certificate():
       
         ctx.terminate_all_tds()
 
+def test_config_B_no_sb_quote_verification():
+    quote_extension_index = 2
+    
+    export_ca_cmd = '''
+                  #!/bin/bash\n
+                  rm -rf ca_cert*\n
+                  NVINFO=`tpm2_nvreadpublic`\n
+
+                  for i in {0..5}; do\n
+                    INDEX=0x1c0010$i\n
+                    if [[ $NVINFO == *"$INDEX"* ]]\n
+                    then\n
+                        NV_SIZE=`tpm2_nvreadpublic $INDEX | grep size |  awk '{print $2}'`\n
+                        tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert$i.bin $INDEX\n
+                        cat ca_cert$i.bin >> ca_cert.bin\n
+                    fi\n
+                  done\n
+                  '''                  
+
+    convert_ca2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    verify_ca_cmd = "openssl verify -CAfile ca_cert.pem ca_cert.pem"
+    
+
+    with vtpm_context() as ctx: 
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+
+        LOG.debug(export_ca_cmd)
+        runner = ctx.exec_ssh_command(export_ca_cmd)
+        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1])
+        
+        LOG.debug(convert_ca2pem_cmd)
+        runner = ctx.exec_ssh_command(convert_ca2pem_cmd)
+        assert runner[1] == "", "Failed to convert CA from der to pem: {}".format(runner[1]) 
+
+        LOG.debug(verify_ca_cmd)
+        runner = ctx.exec_ssh_command(verify_ca_cmd)
+        assert runner[1] == "", "Verify CA fail: {}".format(runner[1])
+        
+        cwd = os.getcwd()
+        copy_ca_to_host_cmd = f"virt-copy-out -a '{ctx.guest_img}' '/root/ca_cert.pem' '{ctx.quote_verification_sample_path}'\n"
+        ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
+        quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app") 
+        
+        ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
+        quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app")
+        quote_path = os.path.join(ctx.quote_verification_sample_path, "quote.data")
+        verf_log_path = os.path.join(ctx.quote_verification_sample_path, "verification.log")
+        
+        # Clean old ca file before copy
+        if os.path.exists(ca_host_path):
+            os.remove(ca_host_path)
+        
+        if os.path.exists(quote_path):
+            os.remove(quote_path)
+            
+        if os.path.exists(verf_log_path):
+            os.remove(verf_log_path) 
+        
+        LOG.debug(copy_ca_to_host_cmd)
+        os.system(copy_ca_to_host_cmd)
+        
+        LOG.debug("Export quote form CA\n")
+        cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open(ca_host_path).read())
+        
+        with open("quote.data", "wb") as fp:
+            fp.write(cert.get_extension(quote_extension_index).get_data())
+            LOG.debug("quote data export successfully: quote.data")
+            
+        os.chdir(ctx.quote_verification_sample_path)
+        LOG.debug(f"{quote_verf_app_path} --quote {quote_path}")    
+        os.system(f"{quote_verf_app_path} --quote {quote_path} > {verf_log_path}")
+        os.chdir(cwd)
+        
+        with open(verf_log_path, "r") as log:
+            assert "[APP] Info: App: Verification completed successfully." in log.read(), "Quote verification fail."
+      
+        ctx.terminate_all_tds()
+
 def test_config_B_no_sb_create_destroy_instance():
     cmd = f'tpm2_pcrread sha256'
 
@@ -1140,6 +1304,87 @@ def test_config_B_sb_verify_CA_and_EK_certificate():
         LOG.debug(verify_ek_cmd)
         runner = ctx.exec_ssh_command(verify_ek_cmd)
         assert runner[1] == "", "Verify EK fail: {}".format(runner[1])  
+      
+        ctx.terminate_all_tds()
+
+def test_config_B_sb_quote_verification():
+    quote_extension_index = 2
+    
+    export_ca_cmd = '''
+                  #!/bin/bash\n
+                  rm -rf ca_cert*\n
+                  NVINFO=`tpm2_nvreadpublic`\n
+
+                  for i in {0..5}; do\n
+                    INDEX=0x1c0010$i\n
+                    if [[ $NVINFO == *"$INDEX"* ]]\n
+                    then\n
+                        NV_SIZE=`tpm2_nvreadpublic $INDEX | grep size |  awk '{print $2}'`\n
+                        tpm2_nvread --hierarchy owner --size $NV_SIZE --output ca_cert$i.bin $INDEX\n
+                        cat ca_cert$i.bin >> ca_cert.bin\n
+                    fi\n
+                  done\n
+                  '''                  
+
+    convert_ca2pem_cmd = "openssl x509 -inform DER -in ca_cert.bin -outform PEM -out ca_cert.pem"
+    verify_ca_cmd = "openssl verify -CAfile ca_cert.pem ca_cert.pem"
+    
+
+    with vtpm_context() as ctx: 
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+
+        LOG.debug(export_ca_cmd)
+        runner = ctx.exec_ssh_command(export_ca_cmd)
+        assert runner[1] == "", "Failed to export CA certificate: {}".format(runner[1])
+        
+        LOG.debug(convert_ca2pem_cmd)
+        runner = ctx.exec_ssh_command(convert_ca2pem_cmd)
+        assert runner[1] == "", "Failed to convert CA from der to pem: {}".format(runner[1]) 
+
+        LOG.debug(verify_ca_cmd)
+        runner = ctx.exec_ssh_command(verify_ca_cmd)
+        assert runner[1] == "", "Verify CA fail: {}".format(runner[1])
+        
+        cwd = os.getcwd()
+        copy_ca_to_host_cmd = f"virt-copy-out -a '{ctx.guest_img}' '/root/ca_cert.pem' '{ctx.quote_verification_sample_path}'\n"
+        ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
+        quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app") 
+        
+        ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
+        quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app")
+        quote_path = os.path.join(ctx.quote_verification_sample_path, "quote.data")
+        verf_log_path = os.path.join(ctx.quote_verification_sample_path, "verification.log")
+        
+        # Clean old ca file before copy
+        if os.path.exists(ca_host_path):
+            os.remove(ca_host_path)
+        
+        if os.path.exists(quote_path):
+            os.remove(quote_path)
+            
+        if os.path.exists(verf_log_path):
+            os.remove(verf_log_path) 
+        
+        LOG.debug(copy_ca_to_host_cmd)
+        os.system(copy_ca_to_host_cmd)
+        
+        LOG.debug("Export quote form CA\n")
+        cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open(ca_host_path).read())
+        
+        with open("quote.data", "wb") as fp:
+            fp.write(cert.get_extension(quote_extension_index).get_data())
+            LOG.debug("quote data export successfully: quote.data")
+            
+        os.chdir(ctx.quote_verification_sample_path)
+        LOG.debug(f"{quote_verf_app_path} --quote {quote_path}")    
+        os.system(f"{quote_verf_app_path} --quote {quote_path} > {verf_log_path}")
+        os.chdir(cwd)
+        
+        with open(verf_log_path, "r") as log:
+            assert "[APP] Info: App: Verification completed successfully." in log.read(), "Quote verification fail."
       
         ctx.terminate_all_tds()
 
