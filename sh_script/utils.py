@@ -55,6 +55,7 @@ class VtpmTool:
         self.guest_password: str = None
         self.vtpm_test_img: str = None
         self.vtpm_test_img_mount_path: str = None
+        self.quote_verification_sample_path: str = None
         self.stress_test_cycles: str = None
         self.default_user_id: str = None
         self.default_startup_cmds: List[str] = None

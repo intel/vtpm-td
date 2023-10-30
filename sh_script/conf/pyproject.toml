@@ -10,6 +10,7 @@ guest_username = "root"
 guest_password = "123456"
 vtpm_test_img = "/home/env/vtpm/vtpm.img"
 vtpm_test_img_mount_path = "/media/vtpm"
+quote_verification_sample_path = "/home/env/dcap/linux-sgx/external/dcap_source/SampleCode/QuoteVerificationSample"
 stress_test_cycles = 1000
 default_user_id = "aabbccdd-2012-2022-1234-123456789123"
 default_startup_cmds = [
