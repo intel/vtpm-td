@@ -7,7 +7,7 @@ use tdx_tdcall::tdx::tdvmcall_service;
 
 use interrupt::{wait_for_vmm_notification_wait_for_request, INTERRUPT_VECTOR_WAIT_FOR_REQUEST};
 use protocol::report_status::TdVtpmReportStatus;
-use td_payload::mm::dma::{alloc_dma_pages, free_dma_pages};
+use td_payload::mm::shared::{alloc_shared_pages, free_shared_pages};
 
 use crate::interrupt;
 
@@ -17,14 +17,14 @@ fn alloc<'a>(size: usize) -> Option<&'a mut [u8]> {
         return None;
     }
     unsafe {
-        alloc_dma_pages(1)
+        alloc_shared_pages(1)
             .map(|address| core::slice::from_raw_parts_mut(address as *const u8 as *mut u8, size))
     }
 }
 
 /// free a page
 fn free(target: &[u8]) {
-    unsafe { free_dma_pages(target.as_ptr() as usize, 1) }
+    unsafe { free_shared_pages(target.as_ptr() as usize, 1) }
 }
 
 ///

@@ -13,4 +13,4 @@ log = "0.4.13"
 ring = { version = "0.16.20" }
 spdmlib = { path = "../../deps/rust-spdm/spdmlib", default-features = false, features = ["spdm-ring", "mut-auth"]}
 tdx-tdcall = { path = "../../deps/td-shim/tdx-tdcall" }
-zerocopy = "0.6.1"
+zerocopy = { version = "0.7.31", features = ["derive"] }
