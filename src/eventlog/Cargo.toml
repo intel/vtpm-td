@@ -9,4 +9,4 @@ edition = "2021"
   cc-measurement = { path = "../../deps/td-shim/cc-measurement"}
   td-shim = { path = "../../deps/td-shim/td-shim", default-featuers = false }
   td-payload = { path = "../../deps/td-shim/td-payload", features = ["tdx"] }
-  zerocopy = "0.6.1"
+  zerocopy = { version = "0.7.31", features = ["derive"] }
