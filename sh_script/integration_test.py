@@ -260,6 +260,8 @@ def test_config_A_quote_verification():
         LOG.debug(copy_ca_to_host_cmd)
         os.system(copy_ca_to_host_cmd)
         
+        time.sleep(5)
+        
         LOG.debug("Export quote form CA\n")
         cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open(ca_host_path).read())
         
@@ -839,6 +841,8 @@ def test_config_B_no_sb_quote_verification():
         LOG.debug(copy_ca_to_host_cmd)
         os.system(copy_ca_to_host_cmd)
         
+        time.sleep(5)
+        
         LOG.debug("Export quote form CA\n")
         cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open(ca_host_path).read())
         
@@ -1370,6 +1374,8 @@ def test_config_B_sb_quote_verification():
         
         LOG.debug(copy_ca_to_host_cmd)
         os.system(copy_ca_to_host_cmd)
+        
+        time.sleep(5)
         
         LOG.debug("Export quote form CA\n")
         cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open(ca_host_path).read())
