@@ -27,13 +27,14 @@ jobs:
       - name: Checkout sources - TDVF
         run: |
           rm -rf ../vtpm-tdvf
-          git clone --recursive --single-branch -b TDVF https://github.com/tianocore/edk2-staging ../vtpm-tdvf
+          git clone --recursive --single-branch -b 2024-tdvf-ww01.4 https://github.com/tianocore/edk2-staging ../vtpm-tdvf
       
       - name: Build vTPM td
         run: |
           rm -rf ../run-vtpm-td
           mkdir ../run-vtpm-td
           git submodule update --init --recursive
+          rustup component add rust-src
           bash sh_script/pre-build.sh
           bash sh_script/build.sh
           cp target/x86_64-unknown-none/release/vtpmtd.bin ../run-vtpm-td
