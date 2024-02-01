@@ -38,7 +38,8 @@ fn sign_ecdsa_asym_algo(
     let binding = GLOBAL_SPDM_DATA.lock();
     let mut pkcs8 = binding.pkcs8()?;
 
-    let key_pair = ring::signature::EcdsaKeyPair::from_pkcs8(algorithm, pkcs8);
+    let rng = ring::rand::SystemRandom::new();
+    let key_pair = ring::signature::EcdsaKeyPair::from_pkcs8(algorithm, pkcs8, &rng);
     if key_pair.is_err() {
         return None;
     }

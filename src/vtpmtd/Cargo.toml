@@ -33,11 +33,11 @@ td-paging = { path = "../../deps/td-shim/td-paging" }
 td-payload = { path = "../../deps/td-shim/td-payload", features = ["tdx"] }
 td-shim = { path = "../../deps/td-shim/td-shim", default-featuers = false }
 
-spdmlib = { path = "../../deps/rust-spdm/spdmlib", default-features = false, features = ["spdm-ring", "mut-auth"]}
-codec = { path = "../../deps/rust-spdm/codec" }
+spdmlib = { path = "../../deps/spdm-rs/spdmlib", default-features = false, features = ["spdm-ring", "mut-auth", "is_sync"]}
+codec = { path = "../../deps/spdm-rs/codec" }
 
 byteorder = { version = "1.0", default-features = false }
-ring = { version = "0.16.20" }
+ring = { version = "0.17.6" }
 
 global = { path = "../global" }
 crypto = { path = "../crypto" }

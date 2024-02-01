@@ -18,7 +18,7 @@ members = [
 
 exclude = [
     "deps/td-shim",
-    "deps/rust-spdm",
+    "deps/spdm-rs",
     "deps/ring",
     "deps/webpki",
 ]
@@ -33,5 +33,5 @@ panic = "abort"    # disable stack unwinding on panic
 lto = true         # Link-time optimization
 
 [patch.crates-io]
-ring = { path = "deps/rust-spdm/external/ring" }
-webpki = { path = "deps/rust-spdm/external/webpki" }
+ring = { path = "deps/spdm-rs/external/ring" }
+webpki = { path = "deps/spdm-rs/external/webpki" }

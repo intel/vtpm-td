@@ -8,6 +8,11 @@ use spdmlib::{
     error::{SpdmResult, SPDM_STATUS_INVALID_PARAMETER, SPDM_STATUS_INVALID_STATE_LOCAL},
 };
 
+use core::ops::DerefMut;
+extern crate alloc;
+use alloc::sync::Arc;
+use spin::Mutex;
+
 enum_builder! {
     @U8
     EnumName: VtpmTransportMessageType;
@@ -78,17 +83,20 @@ impl Codec for VtpmTransportMessageHeader {
 #[derive(Debug, Copy, Clone, Default)]
 pub struct VtpmTransportEncap {}
 
+#[maybe_async::maybe_async]
 impl SpdmTransportEncap for VtpmTransportEncap {
     /// Encap the input AEAD data with a VtpmTransportMessageHeader
     /// The output transport_buffer follows table 5-14/15
     /// Note: the data is encrypted.
     fn encap(
         &mut self,
-        spdm_buffer: &[u8],
-        transport_buffer: &mut [u8],
+        spdm_buffer: Arc<&[u8]>,
+        transport_buffer: Arc<Mutex<&mut [u8]>>,
         secured_message: bool,
     ) -> SpdmResult<usize> {
         let payload_len = spdm_buffer.len();
+        let mut transport_buffer = transport_buffer.lock();
+        let transport_buffer = transport_buffer.deref_mut();
         let mut writer = Writer::init(&mut *transport_buffer);
         let vtpm_transport_header = VtpmTransportMessageHeader {
             message_length: (2 + payload_len) as u16,
@@ -105,7 +113,8 @@ impl SpdmTransportEncap for VtpmTransportEncap {
         if transport_buffer.len() < header_size + payload_len {
             return Err(SPDM_STATUS_INVALID_PARAMETER);
         }
-        transport_buffer[header_size..(header_size + payload_len)].copy_from_slice(spdm_buffer);
+        transport_buffer[header_size..(header_size + payload_len)]
+            .copy_from_slice(&spdm_buffer.clone());
         Ok(header_size + payload_len)
     }
 
@@ -115,11 +124,14 @@ impl SpdmTransportEncap for VtpmTransportEncap {
     /// Note: the data is encrypted.
     fn decap(
         &mut self,
-        transport_buffer: &[u8],
-        spdm_buffer: &mut [u8],
+        transport_buffer: Arc<&[u8]>,
+        spdm_buffer: Arc<Mutex<&mut [u8]>>,
     ) -> SpdmResult<(usize, bool)> {
-        let mut reader = Reader::init(transport_buffer);
+        let mut reader = Reader::init(&transport_buffer.clone());
         let mut secured_message: bool = false;
+
+        let mut spdm_buffer = spdm_buffer.lock();
+        let spdm_buffer = spdm_buffer.deref_mut();
 
         match VtpmTransportMessageHeader::read(&mut reader) {
             Some(vtpm_transport_header) => {
@@ -158,11 +170,16 @@ impl SpdmTransportEncap for VtpmTransportEncap {
     /// Note: the data is of plain-text.
     fn encap_app(
         &mut self,
-        app_message: &[u8],
-        app_data: &mut [u8],
+        app_message: Arc<&[u8]>,
+        app_data: Arc<Mutex<&mut [u8]>>,
         is_app_message: bool,
     ) -> SpdmResult<usize> {
+        let app_message = &app_message.clone();
         let app_message_len = app_message.len();
+
+        let mut app_data = app_data.lock();
+        let app_data = app_data.deref_mut();
+
         let mut writer = Writer::init(&mut *app_data);
         let header = VtpmTransportAppMessageHeader {
             message_type: if is_app_message {
@@ -187,7 +204,16 @@ impl SpdmTransportEncap for VtpmTransportEncap {
     /// if app_data[0] == 1, then returned bool is false (is_app_message=false).
     /// if app_data[0] == 3, then returned bool is true (is_app_message=true).
     /// Note: the data is of plain-text.
-    fn decap_app(&mut self, app_data: &[u8], app_message: &mut [u8]) -> SpdmResult<(usize, bool)> {
+    fn decap_app(
+        &mut self,
+        app_data: Arc<&[u8]>,
+        app_message: Arc<Mutex<&mut [u8]>>,
+    ) -> SpdmResult<(usize, bool)> {
+        let app_data = &app_data.clone();
+
+        let mut app_message = app_message.lock();
+        let app_message = app_message.deref_mut();
+
         let mut reader = Reader::init(app_data);
         let mut is_app_message = false;
 
@@ -292,10 +318,18 @@ mod test {
         let mut vtpm_encap = VtpmTransportEncap::default();
         let spdm_buffer = [1u8; TEST_SPDM_BUFFER_SIZE];
         let mut buffer = [0u8; TEST_TRANSPORT_BUFFER_SIZE];
-        let res = vtpm_encap.encap(&spdm_buffer, &mut buffer, false);
+        let res = vtpm_encap.encap(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+            false,
+        );
         assert_eq!(res.is_err(), false);
         assert_eq!(res.unwrap(), spdm_buffer.len() + VTPM_MESSAGE_HEADER_SIZE);
-        let res = vtpm_encap.encap(&spdm_buffer, &mut buffer, true);
+        let res = vtpm_encap.encap(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+            true,
+        );
         assert_eq!(res.is_err(), false);
         assert_eq!(res.unwrap(), spdm_buffer.len() + VTPM_MESSAGE_HEADER_SIZE);
     }
@@ -305,13 +339,21 @@ mod test {
         let mut vtpm_encap = VtpmTransportEncap::default();
         let app_message_buffer = [1u8; TEST_SPDM_BUFFER_SIZE];
         let mut app_data_buffer = [0u8; TEST_TRANSPORT_BUFFER_SIZE];
-        let res = vtpm_encap.encap_app(&app_message_buffer, &mut app_data_buffer, false);
+        let res = vtpm_encap.encap_app(
+            Arc::new(&app_message_buffer[..]),
+            Arc::new(Mutex::new(&mut app_data_buffer[..])),
+            false,
+        );
         assert_eq!(res.is_err(), false);
         assert_eq!(
             res.unwrap(),
             app_message_buffer.len() + VTPM_APP_MESSAGE_HEADER_SIZE
         );
-        let res = vtpm_encap.encap_app(&app_message_buffer, &mut app_data_buffer, true);
+        let res = vtpm_encap.encap_app(
+            Arc::new(&app_message_buffer[..]),
+            Arc::new(Mutex::new(&mut app_data_buffer[..])),
+            true,
+        );
         assert_eq!(res.is_err(), false);
         assert_eq!(
             res.unwrap(),
@@ -324,15 +366,31 @@ mod test {
         let mut vtpm_encap = VtpmTransportEncap::default();
         let spdm_buffer = [1u8; TEST_SPDM_BUFFER_SIZE];
         let mut buffer = [0u8; INVALID_TEST_TRANSPORT_BUFFER_SIZE];
-        let res = vtpm_encap.encap(&spdm_buffer, &mut buffer, false);
+        let res = vtpm_encap.encap(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+            false,
+        );
         assert!(res.is_err());
-        let res = vtpm_encap.encap_app(&spdm_buffer, &mut buffer, false);
+        let res = vtpm_encap.encap_app(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+            false,
+        );
         assert!(res.is_err());
-        let res = vtpm_encap.encap(&spdm_buffer, &mut [], false);
+        let res = vtpm_encap.encap(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut [])),
+            false,
+        );
         assert!(res.is_err());
         let spdm_buffer = [0u8; TEST_SPDM_BUFFER_SIZE];
         let mut buffer = [0u8; TEST_SPDM_BUFFER_SIZE];
-        let res = vtpm_encap.encap(&spdm_buffer, &mut buffer, false);
+        let res = vtpm_encap.encap(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+            false,
+        );
         assert!(res.is_err());
     }
 
@@ -341,10 +399,16 @@ mod test {
         let mut vtpm_encap = VtpmTransportEncap::default();
         let spdm_buffer = [0u8; TEST_SPDM_BUFFER_SIZE];
         let mut buffer = [0u8; TEST_TRANSPORT_BUFFER_SIZE];
-        let res = vtpm_encap.decap(&spdm_buffer, &mut buffer);
+        let res = vtpm_encap.decap(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+        );
         assert_eq!(res.unwrap().0, spdm_buffer.len() - VTPM_MESSAGE_HEADER_SIZE);
         let spdm_buffer = [0x02; TEST_SPDM_BUFFER_SIZE];
-        let res = vtpm_encap.decap(&spdm_buffer, &mut buffer);
+        let res = vtpm_encap.decap(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+        );
         assert_eq!(res.unwrap().0, spdm_buffer.len() - VTPM_MESSAGE_HEADER_SIZE);
     }
 
@@ -353,13 +417,20 @@ mod test {
         let mut vtpm_encap = VtpmTransportEncap::default();
         let spdm_buffer = [0u8; TEST_SPDM_BUFFER_SIZE];
         let mut buffer = [0u8; TEST_TRANSPORT_BUFFER_SIZE];
-        let res = vtpm_encap.decap_app(&spdm_buffer, &mut buffer);
+        let res = vtpm_encap.decap_app(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+        );
         assert_eq!(
             res.unwrap().0,
             spdm_buffer.len() - VTPM_APP_MESSAGE_HEADER_SIZE
         );
         let spdm_buffer = [0x03; TEST_SPDM_BUFFER_SIZE];
-        let res = vtpm_encap.decap_app(&spdm_buffer, &mut buffer);
+        let spdm_buffer = Arc::new(&spdm_buffer[..]);
+        let res = vtpm_encap.decap_app(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+        );
         assert_eq!(
             res.unwrap().0,
             spdm_buffer.len() - VTPM_APP_MESSAGE_HEADER_SIZE
@@ -371,15 +442,21 @@ mod test {
         let mut vtpm_encap = VtpmTransportEncap::default();
         let mut buffer = [0u8; INVALID_TEST_TRANSPORT_BUFFER_SIZE];
         let spdm_buffer = [1u8; TEST_SPDM_BUFFER_SIZE];
-        let res = vtpm_encap.decap(&spdm_buffer, &mut buffer);
+        let res = vtpm_encap.decap(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+        );
         assert!(res.is_err());
-        let res = vtpm_encap.decap_app(&spdm_buffer, &mut buffer);
+        let res = vtpm_encap.decap_app(
+            Arc::new(&spdm_buffer[..]),
+            Arc::new(Mutex::new(&mut buffer[..])),
+        );
         assert!(res.is_err());
-        let res = vtpm_encap.decap(&spdm_buffer, &mut []);
+        let res = vtpm_encap.decap(Arc::new(&spdm_buffer[..]), Arc::new(Mutex::new(&mut [])));
         assert!(res.is_err());
-        let res = vtpm_encap.decap(&[], &mut []);
+        let res = vtpm_encap.decap(Arc::new(&[]), Arc::new(Mutex::new(&mut [])));
         assert!(res.is_err());
-        let res = vtpm_encap.decap_app(&spdm_buffer, &mut []);
+        let res = vtpm_encap.decap_app(Arc::new(&spdm_buffer[..]), Arc::new(Mutex::new(&mut [])));
         assert!(res.is_err());
     }
 }
