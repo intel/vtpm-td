@@ -224,6 +224,8 @@ def test_config_A_quote_verification():
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
         ctx.connect_ssh()
+        
+        time.sleep(10)
 
         LOG.debug(export_ca_cmd)
         runner = ctx.exec_ssh_command(export_ca_cmd)
@@ -803,6 +805,8 @@ def test_config_B_no_sb_quote_verification():
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
         ctx.connect_ssh()
+        
+        time.sleep(10)
 
         LOG.debug(export_ca_cmd)
         runner = ctx.exec_ssh_command(export_ca_cmd)
@@ -1335,6 +1339,8 @@ def test_config_B_sb_quote_verification():
         ctx.execute_qmp()
         ctx.start_user_td(with_guest_kernel=True)
         ctx.connect_ssh()
+        
+        time.sleep(10)
 
         LOG.debug(export_ca_cmd)
         runner = ctx.exec_ssh_command(export_ca_cmd)
