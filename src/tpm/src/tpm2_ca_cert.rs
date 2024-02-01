@@ -50,9 +50,11 @@ pub fn gen_tpm2_ca_cert() -> VtpmResult {
     }
     let mut pkcs8 = pkcs8.unwrap();
 
+    let rng = ring::rand::SystemRandom::new();
     let key_pair = EcdsaKeyPair::from_pkcs8(
         &ring::signature::ECDSA_P384_SHA384_ASN1_SIGNING,
         pkcs8.as_ref(),
+        &rng,
     );
 
     if key_pair.is_err() {

@@ -586,9 +586,11 @@ pub fn tpm2_provision_ek() -> VtpmResult {
             break;
         }
 
+        let rng = ring::rand::SystemRandom::new();
         let key_pair = ring::signature::EcdsaKeyPair::from_pkcs8(
             &signature::ECDSA_P384_SHA384_ASN1_SIGNING,
             pkcs8.as_slice(),
+            &rng,
         );
         if key_pair.is_err() {
             break;

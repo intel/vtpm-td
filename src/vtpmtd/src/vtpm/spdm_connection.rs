@@ -3,8 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use ::crypto::resolve::{generate_certificate, generate_ecdsa_keypairs};
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use byteorder::{ByteOrder, LittleEndian};
+use core::convert::TryFrom;
+use core::ops::DerefMut;
 use eventlog::eventlog::{event_log_size, get_event_log};
 use global::{
     sensitive_data_cleanup, TdVtpmOperation, VtpmError, VtpmResult, GLOBAL_SPDM_DATA,
@@ -20,7 +23,7 @@ use spdmlib::{
     common::{
         self,
         session::{self, SpdmSessionState},
-        SpdmConfigInfo, SpdmDeviceIo, SpdmOpaqueSupport, SpdmProvisionInfo,
+        SecuredMessageVersion, SpdmConfigInfo, SpdmDeviceIo, SpdmOpaqueSupport, SpdmProvisionInfo,
         DMTF_SECURE_SPDM_VERSION_10, DMTF_SECURE_SPDM_VERSION_11, ST1,
     },
     config::{self, *},
@@ -30,22 +33,23 @@ use spdmlib::{
         vendor, RegistryOrStandardsBodyID, SpdmKeyUpdateOperation, SpdmMeasurementOperation,
     },
     protocol::{
-        SpdmAeadAlgo, SpdmBaseAsymAlgo, SpdmBaseHashAlgo, SpdmCertChainData, SpdmDheAlgo,
-        SpdmDmtfMeasurementStructure, SpdmKeyScheduleAlgo, SpdmMeasurementBlockStructure,
-        SpdmMeasurementHashAlgo, SpdmMeasurementRecordStructure, SpdmMeasurementSpecification,
-        SpdmMeasurementSummaryHashType, SpdmReqAsymAlgo, SpdmRequestCapabilityFlags,
-        SpdmResponseCapabilityFlags, SpdmVersion, SHA384_DIGEST_SIZE,
+        gen_array_clone, SpdmAeadAlgo, SpdmBaseAsymAlgo, SpdmBaseHashAlgo, SpdmCertChainData,
+        SpdmDheAlgo, SpdmDmtfMeasurementStructure, SpdmKeyScheduleAlgo,
+        SpdmMeasurementBlockStructure, SpdmMeasurementHashAlgo, SpdmMeasurementRecordStructure,
+        SpdmMeasurementSpecification, SpdmMeasurementSummaryHashType, SpdmReqAsymAlgo,
+        SpdmRequestCapabilityFlags, SpdmResponseCapabilityFlags, SpdmVersion, SHA384_DIGEST_SIZE,
     },
     responder::{self, ResponderContext},
 };
+use spin::Mutex;
 use tpm::{start_tpm, terminate_tpm, tpm2_provision::tpm2_provision_ek};
 
 fn make_config_info() -> common::SpdmConfigInfo {
     common::SpdmConfigInfo {
         spdm_version: [
-            SpdmVersion::SpdmVersion10,
-            SpdmVersion::SpdmVersion11,
-            SpdmVersion::SpdmVersion12,
+            Some(SpdmVersion::SpdmVersion10),
+            Some(SpdmVersion::SpdmVersion11),
+            Some(SpdmVersion::SpdmVersion12),
         ],
         rsp_capabilities: SpdmResponseCapabilityFlags::CERT_CAP
             | SpdmResponseCapabilityFlags::CHAL_CAP
@@ -73,7 +77,10 @@ fn make_config_info() -> common::SpdmConfigInfo {
         data_transfer_size: config::MAX_SPDM_MSG_SIZE as u32,
         max_spdm_msg_size: config::MAX_SPDM_MSG_SIZE as u32,
         heartbeat_period: config::HEARTBEAT_PERIOD,
-        secure_spdm_version: [DMTF_SECURE_SPDM_VERSION_10, DMTF_SECURE_SPDM_VERSION_11],
+        secure_spdm_version: [
+            Some(SecuredMessageVersion::try_from(DMTF_SECURE_SPDM_VERSION_10).unwrap()),
+            Some(SecuredMessageVersion::try_from(DMTF_SECURE_SPDM_VERSION_11).unwrap()),
+        ],
         ..Default::default()
     }
 }
@@ -90,9 +97,11 @@ fn make_provision_info() -> Option<common::SpdmProvisionInfo> {
     let mut pkcs8 = generate_ecdsa_keypairs().expect("Failed to generate ecdsa keypair.\n");
     GLOBAL_SPDM_DATA.lock().set_pkcs8(pkcs8.as_ref());
 
+    let rng = ring::rand::SystemRandom::new();
     let mut key_pair = ring::signature::EcdsaKeyPair::from_pkcs8(
         &signature::ECDSA_P384_SHA384_ASN1_SIGNING,
         pkcs8.as_ref(),
+        &rng,
     );
 
     if key_pair.is_err() {
@@ -117,7 +126,7 @@ fn make_provision_info() -> Option<common::SpdmProvisionInfo> {
     let provision_info = common::SpdmProvisionInfo {
         my_cert_chain_data: [Some(cert_data), None, None, None, None, None, None, None],
         my_cert_chain: [None, None, None, None, None, None, None, None],
-        peer_root_cert_data: None,
+        peer_root_cert_data: gen_array_clone(None, MAX_ROOT_CERT_SUPPORT),
     };
 
     sensitive_data_cleanup(&mut key_pair);
@@ -201,8 +210,8 @@ impl SpdmConnection {
         }
 
         let mut context: ResponderContext = responder::ResponderContext::new(
-            &mut device_io,
-            &mut vtpm_transport_encap,
+            Arc::new(Mutex::new(device_io)),
+            Arc::new(Mutex::new(vtpm_transport_encap)),
             make_config_info(),
             provision_info.unwrap(),
         );
@@ -216,26 +225,31 @@ impl SpdmConnection {
             let mut current_session_state: SpdmSessionState =
                 SpdmSessionState::SpdmSessionNotStarted;
 
-            let res = context.process_message(ST1, &[]);
-            if let Ok(res) = res {
-                if res {
-                    // SPDM message handled correctly
-                    // Check the SPDM status
-                    let sessions_status = context.common.get_session_status();
-                    // Currently there is only one session can be established in a ResponderContext
-                    // So the returned sessions_status shall have only one working session.
-                    if sessions_status.is_empty() {
-                        log::error!("There shall be at least one session returned.");
-                    } else {
-                        (sess_id, current_session_state) = sessions_status[0];
-                        do_reset_context = false;
+            let raw_packet = &mut [0u8; spdmlib::config::RECEIVER_BUFFER_SIZE];
+            let res = context.process_message(false, ST1, raw_packet);
+            match res {
+                Ok(spdm_result) => match spdm_result {
+                    Ok(_) => {
+                        // SPDM message handled correctly
+                        // Check the SPDM status
+                        let sessions_status = context.common.get_session_status();
+                        // Currently there is only one session can be established in a ResponderContext
+                        // So the returned sessions_status shall have only one working session.
+                        if sessions_status.is_empty() {
+                            log::error!("There shall be at least one session returned.");
+                        } else {
+                            (sess_id, current_session_state) = sessions_status[0];
+                            do_reset_context = false;
+                        }
                     }
-                } else {
-                    // Received unknown spdm command
-                    log::error!("Received unknown SPDM command\n");
+                    Err(status) => {
+                        // Received unknown spdm command
+                        log::error!("Received unknown SPDM command. status: {:?}\n", status);
+                    }
+                },
+                Err(used) => {
+                    log::error!("Unexpected result of context.process_message.\n");
                 }
-            } else {
-                log::error!("Unexpected result of context.process_message.\n");
             }
 
             if !do_reset_context {

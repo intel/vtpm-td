@@ -11,7 +11,7 @@ function patch_tdshim() {
 }
 
 function patch_rustspdm() {
-  pushd deps/rust-spdm
+  pushd deps/spdm-rs
   sh_script/pre-build.sh
   popd
 }

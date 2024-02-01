@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+use codec::Writer;
 use core::ffi::c_uchar;
 
 use crypto::resolve::{get_cert_from_certchain, verify_peer_cert};
@@ -21,12 +22,13 @@ use tpm::{
     tpm2_sys::{_TPM_Hash_Data, _TPM_Hash_End, _TPM_Hash_Start},
 };
 
-fn spdm_secure_app_message_handler(
+fn spdm_secure_app_message_handler<'a>(
     _: &mut ResponderContext,
     session_id: u32,
     app_buffer: &[u8],
-    auxiliary_app_data: &[u8],
-) -> SpdmResult<([u8; MAX_SPDM_MSG_SIZE], usize)> {
+    auxiliary_app_data: usize,
+    writer: &'a mut Writer,
+) -> (SpdmResult, Option<&'a [u8]>) {
     assert!(GLOBAL_SPDM_DATA.lock().valid);
     let tpm_cmd = app_buffer;
     let tpm_cmd_size = app_buffer.len();
@@ -35,7 +37,9 @@ fn spdm_secure_app_message_handler(
 
     let (rsp_size, rsp_code) = execute_command(tpm_cmd, &mut tpm_rsp, 0);
 
-    Ok((tpm_rsp, rsp_size as usize))
+    writer.extend_from_slice(&tpm_rsp[..rsp_size as usize]);
+
+    (Ok(()), Some(writer.used_slice()))
 }
 
 pub fn register_spdm_secure_app_message_handler() -> bool {

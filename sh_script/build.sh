@@ -28,7 +28,7 @@ function clean() {
   cargo clean
   popd
 
-  pushd deps/rust-spdm
+  pushd deps/spdm-rs
   cargo clean
   popd
 

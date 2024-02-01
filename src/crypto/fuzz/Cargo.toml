@@ -19,8 +19,8 @@ der = {version = "0.5.1", features = ["oid", "alloc", "derive"]}
 path = ".."
 
 [patch.crates-io]
-ring = { path = "../../../deps/rust-spdm/external/ring" }
-webpki = { path = "../../../deps/rust-spdm/external/webpki" }
+ring = { path = "../../../deps/spdm-rs/external/ring" }
+webpki = { path = "../../../deps/spdm-rs/external/webpki" }
 
 # Prevent this from interfering with workspaces
 [workspace]

@@ -10,7 +10,7 @@ bytes = { version="1", default-features=false }
 der = {version = "0.5.1", features = ["oid", "alloc", "derive"]}
 global = { path = "../global" }
 log = "0.4.13"
-ring = { version = "0.16.20" }
-spdmlib = { path = "../../deps/rust-spdm/spdmlib", default-features = false, features = ["spdm-ring", "mut-auth"]}
+ring = { version = "0.17.6" }
+spdmlib = { path = "../../deps/spdm-rs/spdmlib", default-features = false, features = ["spdm-ring", "mut-auth", "is_sync"]}
 tdx-tdcall = { path = "../../deps/td-shim/tdx-tdcall" }
 zerocopy = { version = "0.7.31", features = ["derive"] }

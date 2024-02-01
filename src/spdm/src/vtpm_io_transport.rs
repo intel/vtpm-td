@@ -3,6 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use core::convert::TryFrom;
+use core::ops::DerefMut;
+
+extern crate alloc;
+use alloc::sync::Arc;
+use spin::Mutex;
 
 use global::{TdVtpmOperation, GLOBAL_SPDM_DATA};
 use spdmlib::common::SpdmDeviceIo;
@@ -25,13 +30,17 @@ impl VtpmIoTransport {
     }
 }
 
+#[maybe_async::maybe_async]
 impl SpdmDeviceIo for VtpmIoTransport {
     /// Send the payload out.
     /// The payload follows the format in Table 5-14/15/16
-    fn send(&mut self, buffer: &[u8]) -> SpdmResult {
-        let res =
-            self.tunnel
-                .report_status(buffer, self.vtpm_id, TdVtpmOperation::Communicate as u8, 0);
+    fn send(&mut self, buffer: Arc<&[u8]>) -> SpdmResult {
+        let res = self.tunnel.report_status(
+            &buffer.clone(),
+            self.vtpm_id,
+            TdVtpmOperation::Communicate as u8,
+            0,
+        );
         if res.is_err() {
             Err(SPDM_STATUS_SEND_FAIL)
         } else {
@@ -39,9 +48,11 @@ impl SpdmDeviceIo for VtpmIoTransport {
         }
     }
 
-    fn receive(&mut self, buffer: &mut [u8], _timeout: usize) -> Result<usize, usize> {
+    fn receive(&mut self, buffer: Arc<Mutex<&mut [u8]>>, _timeout: usize) -> Result<usize, usize> {
         let mut tmp_buf: [u8; 0x1000] = [0; 0x1000];
 
+        let mut buffer = buffer.lock();
+        let buffer = buffer.deref_mut();
         GLOBAL_SPDM_DATA.lock().clear_data();
         let res = self.tunnel.wait_for_request(buffer, self.vtpm_id);
         if res.is_err() {
@@ -127,7 +138,8 @@ mod test {
     fn test_vtpmio_transport_send() {
         let mut vtpmio = VtpmIoTransport::new(101);
         let buffer = [1u8; 100];
-        let res = vtpmio.send(&buffer);
+        let buffer = Arc::new(&buffer[..]);
+        let res = vtpmio.send(buffer);
         assert!(res.is_err());
     }
 
@@ -136,7 +148,8 @@ mod test {
     fn test_vtpmio_transport_recive() {
         let mut vtpmio = VtpmIoTransport::new(101);
         let mut buffer = [1u8; 100];
-        let res = vtpmio.receive(&mut buffer, 0);
+        let buffer = Arc::new(Mutex::new(&mut buffer[..]));
+        let res = vtpmio.receive(buffer, 0);
         assert!(res.is_err());
     }
 
