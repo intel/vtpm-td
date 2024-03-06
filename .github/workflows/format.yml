@@ -25,7 +25,7 @@ jobs:
         run: |
           git config --global http.postBuffer 524288000
           git config --global   http.sslVerify "false"
-          git submodule update --init --recursive
+          git submodule update --init --recursive --depth 1
 
       # Install first since it's needed to build NASM
       - name: Install LLVM and Clang
@@ -73,7 +73,7 @@ jobs:
         run: |
           git config --global http.postBuffer 524288000
           git config --global   http.sslVerify "false"
-          git submodule update --init --recursive
+          git submodule update --init --recursive --depth 1
 
       - name: Install toolchain with rustfmt available
         uses: actions-rs/toolchain@v1

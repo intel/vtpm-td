@@ -25,7 +25,7 @@ jobs:
         run: |
           git config --global http.postBuffer 524288000
           git config --global   http.sslVerify "false"
-          git submodule update --init --recursive
+          git submodule update --init --recursive --depth 1
       
       - name: Checkout sources - TDVF
         run: |
