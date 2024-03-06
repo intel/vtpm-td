@@ -24,7 +24,7 @@ jobs:
     - uses: actions/checkout@v4
     - run: git config --global http.postBuffer 524288000
     - run: git config --global   http.sslVerify "false"
-    - run: git submodule update --init --recursive
+    - run: git submodule update --init --recursive --depth 1
     - run: bash sh_script/pre-build.sh
     - uses: EmbarkStudios/cargo-deny-action@v1
       with:
