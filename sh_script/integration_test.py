@@ -236,11 +236,11 @@ def test_config_A_quote_verification():
         LOG.debug(verify_ca_cmd)
         runner = ctx.exec_ssh_command(verify_ca_cmd)
         assert runner[1] == "", "Verify CA fail: {}".format(runner[1])
+        time.sleep(5)
         
         cwd = os.getcwd()
         copy_ca_to_host_cmd = f"virt-copy-out -a '{ctx.guest_img}' '/root/ca_cert.pem' '{ctx.quote_verification_sample_path}'\n"
-        ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
-        quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app") 
+        time.sleep(5)
         
         ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
         quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app")
@@ -817,12 +817,12 @@ def test_config_B_no_sb_quote_verification():
         LOG.debug(verify_ca_cmd)
         runner = ctx.exec_ssh_command(verify_ca_cmd)
         assert runner[1] == "", "Verify CA fail: {}".format(runner[1])
-        
+        time.sleep(5)
+
         cwd = os.getcwd()
         copy_ca_to_host_cmd = f"virt-copy-out -a '{ctx.guest_img}' '/root/ca_cert.pem' '{ctx.quote_verification_sample_path}'\n"
-        ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
-        quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app") 
-        
+        time.sleep(5)
+
         ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
         quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app")
         quote_path = os.path.join(ctx.quote_verification_sample_path, "quote.data")
@@ -1351,12 +1351,12 @@ def test_config_B_sb_quote_verification():
         LOG.debug(verify_ca_cmd)
         runner = ctx.exec_ssh_command(verify_ca_cmd)
         assert runner[1] == "", "Verify CA fail: {}".format(runner[1])
-        
+        time.sleep(5)    
+
         cwd = os.getcwd()
         copy_ca_to_host_cmd = f"virt-copy-out -a '{ctx.guest_img}' '/root/ca_cert.pem' '{ctx.quote_verification_sample_path}'\n"
-        ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
-        quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app") 
-        
+        time.sleep(5)
+
         ca_host_path = os.path.join(ctx.quote_verification_sample_path, "ca_cert.pem")
         quote_verf_app_path = os.path.join(ctx.quote_verification_sample_path, "app")
         quote_path = os.path.join(ctx.quote_verification_sample_path, "quote.data")
