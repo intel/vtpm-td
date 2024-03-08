@@ -12,6 +12,9 @@ env:
   RUST_TOOLCHAIN: nightly-2023-08-28
   TOOLCHAIN_PROFILE: minimal
 
+permissions:
+  contents: read
+
 jobs:
   integration:
     name: Run vTPM Integration Test
@@ -19,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout sources - vTpm
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Initialize and update submodules
         run: |
