@@ -39,7 +39,11 @@ jobs:
           uses: ilammy/setup-nasm@13cbeb366c45c4379d3478cdcbadd8295feb5028 # v1.5.1
         
         - name: Install tools for tpm-ref build
-          run:  sudo apt-get install autoconf-archive pkg-config build-essential automake gcc libssl-dev ocaml ocamlbuild autoconf libtool wget python-is-python3 cmake perl gcc-multilib
+          run: |
+            sudo apt-get autoclean
+            sudo apt-get update
+            sudo apt-get upgrade
+            sudo apt-get install autoconf-archive pkg-config build-essential automake gcc libssl-dev ocaml ocamlbuild autoconf libtool wget python-is-python3 cmake perl gcc-multilib
  
         - name: Install toolchain
           uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1.0.7
