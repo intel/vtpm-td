@@ -7,7 +7,7 @@
 /// This file follow *TDX Guest Host Communication Interface(GHCI)* v1.5
 use byteorder::{ByteOrder, LittleEndian};
 use global::{VtpmError, VtpmResult};
-use td_uefi_pi::pi::guid::Guid;
+use td_shim_interface::td_uefi_pi::pi::guid::Guid;
 
 /// Table 3-40: TDG.VP.VMCALL< Service >-command buffer layout
 pub(crate) mod field {

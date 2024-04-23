@@ -25,7 +25,9 @@ use core::ffi::c_void;
 use core::panic::PanicInfo;
 use linked_list_allocator::LockedHeap;
 use td_layout::runtime::*;
-use td_uefi_pi::hob::{check_hob_integrity, dump_hob, get_system_memory_size_below_4gb};
+use td_shim_interface::td_uefi_pi::hob::{
+    check_hob_integrity, dump_hob, get_system_memory_size_below_4gb,
+};
 
 #[cfg(not(test))]
 #[no_mangle]

@@ -10,7 +10,7 @@ use super::{COMMAND_REPORT_STATUS, DEFAULT_VERSION};
 ///
 use byteorder::{ByteOrder, LittleEndian};
 use global::{VtpmError, VtpmResult};
-use td_uefi_pi::pi::guid::Guid;
+use td_shim_interface::td_uefi_pi::pi::guid::Guid;
 
 /// TODO: FIXME: comment reference error!
 /// Table 5-15: vTPM TD WaitForCommunication Command

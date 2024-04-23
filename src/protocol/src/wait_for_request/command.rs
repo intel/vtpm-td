@@ -10,7 +10,7 @@ use super::{COMMAND_WAIT_FOR_REQUEST, DEFAULT_VERSION};
 ///
 use byteorder::{ByteOrder, LittleEndian};
 use global::{VtpmError, VtpmResult};
-use td_uefi_pi::pi::guid::Guid;
+use td_shim_interface::td_uefi_pi::pi::guid::Guid;
 
 /// Table 5-15: vTPM TD WaitForCommunication Command
 pub(crate) mod field {

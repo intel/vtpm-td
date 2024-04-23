@@ -9,4 +9,4 @@ edition = "2021"
 byteorder = { version = "1.0", default-features = false }
 global = { path = "../global" }
 log = "0.4.13"
-td-uefi-pi =  { path = "../../deps/td-shim/td-uefi-pi" }
+td-shim-interface =  { path = "../../deps/td-shim/td-shim-interface" }
