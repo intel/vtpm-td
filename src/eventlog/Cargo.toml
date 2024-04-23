@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
   cc-measurement = { path = "../../deps/td-shim/cc-measurement"}
   td-shim = { path = "../../deps/td-shim/td-shim", default-featuers = false }
+  td-shim-interface = { path = "../../deps/td-shim/td-shim-interface" }
   td-payload = { path = "../../deps/td-shim/td-payload", features = ["tdx"] }
   zerocopy = { version = "0.7.31", features = ["derive"] }

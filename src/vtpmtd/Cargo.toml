@@ -23,7 +23,7 @@ der = {version = "0.5.1", features = ["oid", "alloc", "derive"]}
 eventlog = { path = "../eventlog" }
 linked_list_allocator = "0.10.2"
 log = "0.4.13"
-td-uefi-pi =  { path = "../../deps/td-shim/td-uefi-pi" }
+td-shim-interface =  { path = "../../deps/td-shim/td-shim-interface" }
 tdx-tdcall = { path = "../../deps/td-shim/tdx-tdcall" }
 td-logger =  { path = "../../deps/td-shim/td-logger" }
 td-exception = { path = "../../deps/td-shim/td-exception", features = ["tdx"]}

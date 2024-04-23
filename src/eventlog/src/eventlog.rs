@@ -7,7 +7,7 @@ use cc_measurement::CcEventHeader;
 use cc_measurement::TcgPcrEventHeader;
 use core::mem::size_of;
 use td_payload::acpi::get_acpi_tables;
-use td_shim::acpi::Ccel;
+use td_shim_interface::acpi::Ccel;
 use zerocopy::{AsBytes, FromBytes, FromZeroes};
 
 pub fn event_log_size(event_log: &[u8]) -> Option<usize> {

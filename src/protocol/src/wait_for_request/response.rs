@@ -9,7 +9,7 @@ use core::convert::{TryFrom, TryInto};
 /// This file follow *TDX Guest Host Communication Interface(GHCI)* v1.5
 use byteorder::{ByteOrder, LittleEndian};
 use global::{VtpmError, VtpmResult};
-use td_uefi_pi::pi::guid::Guid;
+use td_shim_interface::td_uefi_pi::pi::guid::Guid;
 
 use super::{COMMAND_WAIT_FOR_REQUEST, DEFAULT_VERSION};
 
