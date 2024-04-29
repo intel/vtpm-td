@@ -36,7 +36,7 @@ pub fn get_quote(td_report: &[u8]) -> Result<Vec<u8>, Error> {
             quote.as_mut_ptr() as *mut c_void,
             &mut quote_size as *mut u32,
         );
-        if result != AttestLibError::MigtdAttestSuccess {
+        if result != AttestLibError::AttestSuccess {
             return Err(Error::GetQuote);
         }
     }
@@ -68,7 +68,7 @@ pub fn verify_quote(quote: &[u8]) -> Result<Vec<u8>, Error> {
             td_report_verify.as_mut_ptr() as *mut c_void,
             &mut report_verify_size as *mut u32,
         );
-        if result != AttestLibError::MigtdAttestSuccess {
+        if result != AttestLibError::AttestSuccess {
             return Err(Error::VerifyQuote);
         }
     }
