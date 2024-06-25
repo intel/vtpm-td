@@ -7,6 +7,11 @@ jobs:
    permissions:
      security-events: write
    steps:
+   - name: Harden Runner
+     uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 # v2.8.1
+     with:
+       egress-policy: audit
+
    - name: Build Fuzzers
      id: build
      uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@c0c4b5402db632b5dbdb57831b7b357e14033ba1 # master
