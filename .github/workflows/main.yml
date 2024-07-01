@@ -1,3 +1,6 @@
+permissions:
+  contents: read-all
+
 on:
     push:
       paths-ignore:

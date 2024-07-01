@@ -13,6 +13,9 @@ env:
   AR: llvm-ar
   CC: clang
 
+permissions:
+  contents: read-all
+
 jobs:
   clippy:
     name: Clippy
