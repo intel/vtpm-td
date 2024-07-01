@@ -1,6 +1,9 @@
 name: oss-fuzz
 on: [pull_request]
-permissions: {}
+
+permissions:
+  contents: read
+
 jobs:
  Fuzzing:
    runs-on: ubuntu-latest
