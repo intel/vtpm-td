@@ -1789,17 +1789,40 @@ def test_stress_test_reset_user_td():
             
     ctx.terminate_all_tds()
 
+def test_non_active_tpm_cmd_case():
+    # Platform Auth is not allowed in OS
+    # run a tpm cmd with platform auth (not unique)
+    cmd_non_active_platform_auth = [
+        f'tpm2_clear -c p', ## platform auth is not allowed in OS, should return TPM Error.
+        f'tpm2_changeeps', ## this command requires platform auth, platform auth is not allowed in OS.
+        f'tpm2_changepps'  ## this command requires platform auth, platform auth is not allowed in OS.
+    ]
+
+    with vtpm_context() as ctx:     
+        ctx.start_vtpm_td()
+        ctx.execute_qmp()
+        ctx.start_user_td(with_guest_kernel=True)
+        ctx.connect_ssh()
+        for cmd in cmd_non_active_platform_auth:
+            LOG.debug(cmd)
+            runner = ctx.exec_ssh_command(cmd,encodingtype='ISO-8859-1')
+            print(cmd)
+            if runner[1] != "":
+                if "TPM Error" not in runner[1]:
+                    assert False
+        ctx.terminate_all_tds() 
+
 def test_tpm_cmd_with_vtpm():
     """
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
     2. Run all tpm commands (Tpm2 Command Coverage 91/99 ~ 91.9%):
-        tpm2_activatecredential
+        tpm2_activatecredential --> Already tested, not test in this case
         tpm2_certify
         tpm2_certifycreation
         tpm2_certifyX509certutil --> not test in this case
         tpm2_changeauth 
-        tpm2_changeeps
-        tpm2_changepps
+        tpm2_changeeps --> premission denied, platform auth is not allowed in os.
+        tpm2_changepps --> premission denied, platform auth is not allowed in os..
         tpm2_checkquote
         tpm2_clear
         tpm2_clearcontrol
@@ -1816,7 +1839,7 @@ def test_tpm_cmd_with_vtpm():
         tpm2_ecdhzgen
         tpm2_ecephemeral
         tpm2_encryptdecrypt
-        tpm2_eventlog --> not test in this case
+        tpm2_eventlog --> Already tested, not test in this case
         tpm2_evictcontrol
         tpm2_flushcontext
         tpm2_getcap
@@ -1834,19 +1857,19 @@ def test_tpm_cmd_with_vtpm():
         tpm2_incrementalselftest
         tpm2_load
         tpm2_loadexternal 
-        tpm2_makecredential 
+        tpm2_makecredential --> Already tested, not test in this case
         tpm2_nvcertify 
         tpm2_nvdefine 
         tpm2_nvextend 
         tpm2_nvincrement
         tpm2_nvread
         tpm2_nvreadlock
-        tpm2_nvreadpublic
+        tpm2_nvreadpublic --> Already tested, not test in this case
         tpm2_nvsetbits
         tpm2_nvundefine
         tpm2_nvwrite
         tpm2_nvwritelock
-        tpm2_pcrallocate 
+        tpm2_pcrallocate --> premission denied, platform auth is not allowed in os.
         tpm2_pcrevent 
         tpm2_pcrextend 
         tpm2_pcrread 
@@ -1866,13 +1889,13 @@ def test_tpm_cmd_with_vtpm():
         tpm2_policypassword
         tpm2_policypcr
         tpm2_policyrestart
-        tpm2_policysecret
+        tpm2_policysecret --> Already tested, not test in this case
         tpm2_policysigned
         tpm2_policytemplate
         tpm2_policyticket --> not ready
         tpm2_print
         tpm2_quote
-        tpm2_rc_decode --> not test in this case
+        tpm2_rc_decode --> not ready
         tpm2_readclock
         tpm2_readpublic
         tpm2_rsadecrypt
@@ -1913,20 +1936,6 @@ def test_tpm_cmd_with_vtpm():
         f'tpm2_dictionarylockout --setup-parameters --max-tries=4294967295 --clear-lockout'
     ]
 
-    ## can use tpm2_getcap properties-variable to check the value
-    cmd_set_and_clear_authorization_list = [
-        f'tpm2_changeauth -c owner newpass',
-        f'tpm2_clockrateadjust -p newpass ss',
-        f'tpm2_changeauth -c endorsement newpass',
-        f'tpm2_changeauth -c lockout newpass',
-        f'tpm2_clear -c p'
-    ] 
-
-    cmd_change_seed_list = [
-        f'tpm2_changeeps',
-        f'tpm2_changepps'
-    ] 
-
     cmd_checkquote_list = [
         f'tpm2_createek -c 0x81010001 -G rsa -u ekpub.pem -f pem',
         f'tpm2_createak -C 0x81010001 -c ak.ctx -G rsa -s rsassa -g sha256 \
@@ -1938,8 +1947,8 @@ def test_tpm_cmd_with_vtpm():
 
     ## can use tpm2_getcap properties-variable to check the "disableClear"
     cmd_clearcontrl_list = [
-        f'tpm2_clearcontrol -C l s',
-        f'tpm2_clearcontrol -C p c'
+        f'tpm2_clearcontrol -C l s'
+        # f'tpm2_clearcontrol -C p c'## platform auth is not allowed in OS
     ] 
 
     cmd_commit_list = [
@@ -2009,13 +2018,6 @@ def test_tpm_cmd_with_vtpm():
     cmd_hash_list =[
         f'echo "text" > data.txt',
         f'tpm2_hash -C e -g sha256 -o hash.bin -t ticket.bin data.txt'
-    ]
-
-    cmd_hierarchycontrol_list = [
-        f'tpm2_hierarchycontrol -C p shEnable clear',
-        f'tpm2_getcap properties-variable', ##check the value 'shEnable'
-        f'tpm2_hierarchycontrol -C p shEnable set',
-        f'tpm2_getcap properties-variable'      
     ]
 
     cmd_hmac_list = [
@@ -2098,13 +2100,8 @@ def test_tpm_cmd_with_vtpm():
     ]
 
     cmd_pcr_list = [
-        f'tpm2_pcrallocate sha256:all',
-        f'tpm2_pcrread sha256',
         f'tpm2_pcrextend 23:sha256=b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c ',#pcr 23 no-empty
-        f'tpm2_pcrreset 23',#pcr 23 empty , can only reset pcr 16 and 23
-        f'echo "foo" > data',
-        f'tpm2_pcrevent 8 data',
-        f'tpm2_pcrread sha256:8'
+        f'tpm2_pcrreset 23'#pcr 23 empty , can only reset pcr 16 and 23
     ] 
 
 
@@ -2283,13 +2280,6 @@ def test_tpm_cmd_with_vtpm():
         f'tpm2_print -t ESYS_TR primary.tr'
     ] 
 
-    cmd_tpm2_clock_list = [
-        f'tpm2_changeauth -c owner newpass',
-        f'tpm2_setclock -p newpass 13673142',
-        f'tpm2_readclock',
-        f'tpm2_clear -c p'
-    ]  
-
     cmd_tpm2_rsaencrypt_decrypt_list = [
         f'tpm2_createprimary -c primary.ctx',
         f'tpm2_create -C primary.ctx -Grsa2048 -u key.pub -r key.priv',
@@ -2355,7 +2345,25 @@ def test_tpm_cmd_with_vtpm():
         f'tpm2_import -C parent.ctx -G ecc -i private.ecc.pem -u key.pub -r key.priv'
     ]
 
+    cmd_tpm2_clock_list = [
+        f'tpm2_changeauth -c owner newpass',
+        f'tpm2_setclock -p newpass 13673142',
+        f'tpm2_readclock'
+    ]
+    
+    ## can use tpm2_getcap properties-variable to check the value
+    cmd_set_and_clear_authorization_list = [
+        f'tpm2_changeauth -c owner newpass',
+        f'tpm2_clockrateadjust -p newpass ss',
+        f'tpm2_clear -c l' 
+    ] 
 
+    cmd_hierarchycontrol_list = [
+        f'tpm2_hierarchycontrol -C o shEnable clear -P newpass',##
+        f'tpm2_getcap properties-variable' ##check the value 'shEnable'
+        # f'tpm2_hierarchycontrol -C o shEnable set',## Only platform hierarchy handle can be specified for SET 'shEnable' bit
+        # f'tpm2_getcap properties-variable'      ##
+    ]
 
     cmd_list = [
         cmd_policyauthorize_nv_list,
@@ -2363,7 +2371,6 @@ def test_tpm_cmd_with_vtpm():
         cmd_certifycreation_list,
         cmd_tpm2_dictionarylockout_list,
         cmd_set_and_clear_authorization_list,
-        cmd_change_seed_list,
         cmd_checkquote_list,
         cmd_clearcontrl_list,
         cmd_commit_list,
@@ -2374,7 +2381,6 @@ def test_tpm_cmd_with_vtpm():
         cmd_get_data_list,
         cmd_getsessionauditdigest_list,
         cmd_gettime_list,
-        cmd_hierarchycontrol_list,
         cmd_hmac_list,
         cmd_tpm_test_list,
         cmd_loadexternal_list,
@@ -2401,7 +2407,6 @@ def test_tpm_cmd_with_vtpm():
         cmd_policysigned_list,
         cmd_tpm2_policytemplate_list,
         cmd_tpm2_print_list,
-        cmd_tpm2_clock_list,
         cmd_tpm2_rsaencrypt_decrypt_list,
         cmd_tpm2_sessionconfig_list,
         cmd_tpm2_setcommandauditstatus_list,
@@ -2410,7 +2415,9 @@ def test_tpm_cmd_with_vtpm():
         cmd_unsea_list,
         cmd_tpm2_sign_list,
         cmd_tpm2_send_list,
-        cmd_tpm2_import_list
+        cmd_tpm2_import_list,
+        cmd_tpm2_clock_list,
+        cmd_hierarchycontrol_list
     ]
 
     cmd_mktest = f'rm -rf test_tpm_cmd && mkdir test_tpm_cmd && pushd test_tpm_cmd'
@@ -2439,4 +2446,4 @@ def test_tpm_cmd_with_vtpm():
                         assert False
             ctx.exec_ssh_command(cmd_clear_file)
         ctx.execute_qmp(is_create=False)
-        ctx.terminate_all_tds() 
+        ctx.terminate_all_tds()
