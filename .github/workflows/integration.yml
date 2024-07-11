@@ -13,7 +13,7 @@ env:
   TOOLCHAIN_PROFILE: minimal
 
 permissions:
-  contents: read-all
+  contents: read
 
 jobs:
   integration:

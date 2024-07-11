@@ -14,7 +14,7 @@ env:
   CC: clang
 
 permissions:
-  contents: read-all
+  contents: read
 
 jobs:
   clippy:
