@@ -67,6 +67,12 @@ jobs:
           python -m pytest -k "config_A"
           popd
 
+      - name: Run test - Config A + Tpm cmd
+        run: |
+          pushd sh_script
+          python -m pytest -k "tpm_cmd"
+          popd
+
       - name: Build Config-B TDVF without secure boot
         run: |
           pushd ../vtpm-tdvf
@@ -83,7 +89,13 @@ jobs:
           pushd sh_script
           python -m pytest -k "config_B_no_sb"
           popd
-      
+
+      - name: Run test - Config B + no secure boot + Tpm cmd
+        run: |
+          pushd sh_script
+          python -m pytest -k "tpm_cmd"
+          popd
+
       - name: Build Config-B TDVF with secure boot
         run: |
           pushd ../vtpm-tdvf
