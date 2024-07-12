@@ -265,7 +265,7 @@ def test_config_A_quote_verification():
         LOG.debug("Export quote form CA\n")
         cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open(ca_host_path).read())
         
-        with open("quote.data", "wb") as fp:
+        with open(quote_path, "wb") as fp:
             fp.write(cert.get_extension(quote_extension_index).get_data())
             LOG.debug("quote data export successfully: quote.data")
             
@@ -846,7 +846,7 @@ def test_config_B_no_sb_quote_verification():
         LOG.debug("Export quote form CA\n")
         cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open(ca_host_path).read())
         
-        with open("quote.data", "wb") as fp:
+        with open(quote_path, "wb") as fp:
             fp.write(cert.get_extension(quote_extension_index).get_data())
             LOG.debug("quote data export successfully: quote.data")
             
@@ -1380,7 +1380,7 @@ def test_config_B_sb_quote_verification():
         LOG.debug("Export quote form CA\n")
         cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, open(ca_host_path).read())
         
-        with open("quote.data", "wb") as fp:
+        with open(quote_path, "wb") as fp:
             fp.write(cert.get_extension(quote_extension_index).get_data())
             LOG.debug("quote data export successfully: quote.data")
             
