@@ -11,6 +11,7 @@ env:
   AS: nasm
   RUST_TOOLCHAIN: nightly-2023-12-31
   TOOLCHAIN_PROFILE: minimal
+  LIBGUESTFS_BACKEND: direct
 
 permissions:
   contents: read
