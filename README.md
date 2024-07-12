@@ -52,7 +52,7 @@ mkdir vtpm-td
 mkdir vtpm-tdvf
 
 git clone --recursive https://github.com/intel/vtpm-td.git vtpm-td
-git clone --recursive --single-branch -b 2024-tdvf-ww01.4 https://github.com/tianocore/edk2-staging vtpm-tdvf
+git clone --recursive --single-branch -b TDVF-vTPM-TD https://github.com/tianocore/edk2-staging vtpm-tdvf
 
 export CC=clang
 export AR=llvm-ar
