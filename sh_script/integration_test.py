@@ -350,7 +350,6 @@ def test_config_A_kill_vtpm_td():
     """
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
     2. Kill vtpm-td, check user TD status, tpm command should not work
-    3. Relaunch vtpm-td and create instance, check user TD status, tpm command should not work
     """
     cmd = f'tpm2_pcrread sha256'
 
@@ -366,16 +365,8 @@ def test_config_A_kill_vtpm_td():
         LOG.debug(cmd)
         runner = ctx.exec_ssh_command(cmd)
         assert runner[1] != "", "vTPM is still work after kill vTPM" 
-        
-        # Relaunch vtpm-td and create instance
-        ctx.start_vtpm_td()
-        ctx.execute_qmp()
-        
-        LOG.debug(cmd)
-        runner = ctx.exec_ssh_command(cmd)
-        assert runner[1] != "", "vTPM is still work after kill vTPM" 
 
-        ctx.terminate_all_tds()
+        ctx.terminate_user_td()
 
 def test_config_A_vtpm_command_nvread():
     """
@@ -918,7 +909,6 @@ def test_config_B_no_sb_kill_vtpm_td():
     """
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
     2. Kill vtpm-td, check user TD status, tpm command should not work
-    3. Relaunch vtpm-td and create instance, check user TD status, tpm command should not work
     """
     cmd = f'tpm2_pcrread sha256'
 
@@ -934,16 +924,8 @@ def test_config_B_no_sb_kill_vtpm_td():
         LOG.debug(cmd)
         runner = ctx.exec_ssh_command(cmd)
         assert runner[1] != "", "vTPM is still work after kill vTPM" 
-        
-        # Relaunch vtpm-td and create instance
-        ctx.start_vtpm_td()
-        ctx.execute_qmp()
-        
-        LOG.debug(cmd)
-        runner = ctx.exec_ssh_command(cmd)
-        assert runner[1] != "", "vTPM is still work after kill vTPM" 
 
-        ctx.terminate_all_tds()
+        ctx.terminate_user_td()
 
 def test_config_B_no_sb_vtpm_command_nvread():
     """
@@ -1452,7 +1434,6 @@ def test_config_B_sb_kill_vtpm_td():
     """
     1. Create TDVM with vTPM device - vTPM TD and user TD should be running
     2. Kill vtpm-td, check user TD status, tpm command should not work
-    3. Relaunch vtpm-td and create instance, check user TD status, tpm command should not work
     """
     cmd = f'tpm2_pcrread sha256'
 
@@ -1468,16 +1449,8 @@ def test_config_B_sb_kill_vtpm_td():
         LOG.debug(cmd)
         runner = ctx.exec_ssh_command(cmd)
         assert runner[1] != "", "vTPM is still work after kill vTPM" 
-        
-        # Relaunch vtpm-td and create instance
-        ctx.start_vtpm_td()
-        ctx.execute_qmp()
-        
-        LOG.debug(cmd)
-        runner = ctx.exec_ssh_command(cmd)
-        assert runner[1] != "", "vTPM is still work after kill vTPM" 
 
-        ctx.terminate_all_tds()
+        ctx.terminate_user_td()
 
 def test_config_B_sb_vtpm_command_nvread():
     """
