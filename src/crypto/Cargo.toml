@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 bytes = { version="1", default-features=false }
-der = {version = "0.5.1", features = ["oid", "alloc", "derive"]}
+der = {version = "0.7.9", features = ["oid", "alloc", "derive"]}
 global = { path = "../global" }
 log = "0.4.13"
 ring = { version = "0.17.6" }

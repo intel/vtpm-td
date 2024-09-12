@@ -8,7 +8,7 @@ use super::x509::{AlgorithmIdentifier, ExtendedKeyUsage, Extensions};
 use crate::x509::Certificate;
 use alloc::vec;
 use der::asn1::ObjectIdentifier;
-use der::{Any, Decodable, Encodable, Tag};
+use der::{AnyRef, Decode, Encode, Tag};
 use ring::digest;
 use ring::pkcs8::Document;
 use ring::rand::SystemRandom;
@@ -17,46 +17,46 @@ use spdmlib::error::{SpdmResult, SPDM_STATUS_INVALID_CERT};
 
 use tdx_tdcall::tdreport::TD_REPORT_SIZE;
 
-pub const BASIC_CONSTRAINTS: ObjectIdentifier = ObjectIdentifier::new("2.5.29.19");
-pub const SUBJECT_KEY_IDENTIFIER: ObjectIdentifier = ObjectIdentifier::new("2.5.29.14");
-pub const KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new("2.5.29.15");
-pub const AUTHORITY_KEY_IDENTIFIER: ObjectIdentifier = ObjectIdentifier::new("2.5.29.35");
-pub const EXTENDED_KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new("2.5.29.37");
+pub const BASIC_CONSTRAINTS: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.19");
+pub const SUBJECT_KEY_IDENTIFIER: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.14");
+pub const KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.15");
+pub const AUTHORITY_KEY_IDENTIFIER: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.35");
+pub const EXTENDED_KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.37");
 
 pub const VTPMTD_EXTENDED_KEY_USAGE: ObjectIdentifier =
-    ObjectIdentifier::new("2.16.840.1.113741.1.5.5.2.1");
+    ObjectIdentifier::new_unwrap("2.16.840.1.113741.1.5.5.2.1");
 pub const VTPMTD_CA_EXTENDED_KEY_USAGE: ObjectIdentifier =
-    ObjectIdentifier::new("2.16.840.1.113741.1.5.5.2.5");
+    ObjectIdentifier::new_unwrap("2.16.840.1.113741.1.5.5.2.5");
 pub const EXTNID_VTPMTD_REPORT: ObjectIdentifier =
-    ObjectIdentifier::new("2.16.840.1.113741.1.5.5.2.4");
+    ObjectIdentifier::new_unwrap("2.16.840.1.113741.1.5.5.2.4");
 pub const EXTNID_VTPMTD_QUOTE: ObjectIdentifier =
-    ObjectIdentifier::new("2.16.840.1.113741.1.5.5.2.2");
+    ObjectIdentifier::new_unwrap("2.16.840.1.113741.1.5.5.2.2");
 pub const EXTNID_VTPMTD_EVENT_LOG: ObjectIdentifier =
-    ObjectIdentifier::new("2.16.840.1.113741.1.5.5.2.3");
+    ObjectIdentifier::new_unwrap("2.16.840.1.113741.1.5.5.2.3");
 
 pub const TDVF_EXTENDED_KEY_USAGE: ObjectIdentifier =
-    ObjectIdentifier::new("2.16.840.1.113741.1.5.5.3.1");
+    ObjectIdentifier::new_unwrap("2.16.840.1.113741.1.5.5.3.1");
 pub const EXTNID_TDVF_REPORT: ObjectIdentifier =
-    ObjectIdentifier::new("2.16.840.1.113741.1.5.5.3.4");
+    ObjectIdentifier::new_unwrap("2.16.840.1.113741.1.5.5.3.4");
 pub const EXTNID_TDVF_QUOTE: ObjectIdentifier =
-    ObjectIdentifier::new("2.16.840.1.113741.1.5.5.3.2");
+    ObjectIdentifier::new_unwrap("2.16.840.1.113741.1.5.5.3.2");
 
-pub const SERVER_AUTH: ObjectIdentifier = ObjectIdentifier::new("1.3.6.1.5.5.7.3.1");
-pub const CLIENT_AUTH: ObjectIdentifier = ObjectIdentifier::new("1.3.6.1.5.5.7.3.2");
+pub const SERVER_AUTH: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.5.5.7.3.1");
+pub const CLIENT_AUTH: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.5.5.7.3.2");
 
-pub const TCG_EK_CERTIFICATE: ObjectIdentifier = ObjectIdentifier::new("2.23.133.8.1");
+pub const TCG_EK_CERTIFICATE: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.23.133.8.1");
 
 // As specified in https://datatracker.ietf.org/doc/html/rfc5480#appendix-A
 // id-ecPublicKey OBJECT IDENTIFIER ::= {
 //     iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1
 // }
-pub const ID_EC_PUBKEY_OID: ObjectIdentifier = ObjectIdentifier::new("1.2.840.10045.2.1");
+pub const ID_EC_PUBKEY_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.10045.2.1");
 // secp384r1 OBJECT IDENTIFIER ::= {
 //     iso(1) identified-organization(3) certicom(132) curve(0) 34
 // }
-pub const SECP384R1_OID: ObjectIdentifier = ObjectIdentifier::new("1.3.132.0.34");
+pub const SECP384R1_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.132.0.34");
 
-pub const ID_EC_SIG_OID: ObjectIdentifier = ObjectIdentifier::new("1.2.840.10045.4.3.3");
+pub const ID_EC_SIG_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.10045.4.3.3");
 
 #[derive(Debug)]
 pub enum ResolveError {
@@ -115,7 +115,7 @@ pub fn generate_certificate(
     // Generate x.509 certificate
     let algorithm = AlgorithmIdentifier {
         algorithm: ID_EC_PUBKEY_OID,
-        parameters: Some(Any::new(Tag::ObjectIdentifier, SECP384R1_OID.as_bytes()).unwrap()),
+        parameters: Some(AnyRef::new(Tag::ObjectIdentifier, SECP384R1_OID.as_bytes()).unwrap()),
     };
 
     let sig_alg = AlgorithmIdentifier {
@@ -125,7 +125,7 @@ pub fn generate_certificate(
 
     let eku = vec![VTPMTD_EXTENDED_KEY_USAGE];
     let eku = eku
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
     let x509_certificate =
         x509::CertificateBuilder::new(sig_alg, algorithm, key_pair.public_key().as_ref(), true)?
@@ -152,7 +152,7 @@ pub fn generate_certificate(
             .build();
 
     x509_certificate
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))
 }
 
