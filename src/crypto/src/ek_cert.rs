@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use alloc::vec;
-use der::asn1::{BitString, ObjectIdentifier, OctetString, SetOfVec, Utf8String};
-use der::{Any, Encodable, Tag};
+use der::asn1::{BitStringRef, ObjectIdentifier, OctetStringRef, SetOfVec, Utf8StringRef};
+use der::{AnyRef, Encode, Tag};
 use global::GLOBAL_TPM_DATA;
 use ring::digest;
 use ring::rand::SystemRandom;
@@ -21,10 +21,10 @@ use crate::{
     x509::{AlgorithmIdentifier, X509Error},
 };
 
-const SUBJECT_ALT_NAME: ObjectIdentifier = ObjectIdentifier::new("2.5.29.17");
-const TCG_TPM_MANUFACTURER: ObjectIdentifier = ObjectIdentifier::new("2.23.133.2.1");
-const TCG_TPM_MODEL: ObjectIdentifier = ObjectIdentifier::new("2.23.133.2.2");
-const TCG_TPM_VERSION: ObjectIdentifier = ObjectIdentifier::new("2.23.133.2.3");
+const SUBJECT_ALT_NAME: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.17");
+const TCG_TPM_MANUFACTURER: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.23.133.2.1");
+const TCG_TPM_MODEL: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.23.133.2.2");
+const TCG_TPM_VERSION: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.23.133.2.3");
 
 pub fn generate_ca_cert(
     td_quote: &[u8],
@@ -41,7 +41,7 @@ pub fn generate_ca_cert(
     // Generate x.509 certificate
     let algorithm = AlgorithmIdentifier {
         algorithm: ID_EC_PUBKEY_OID,
-        parameters: Some(Any::new(Tag::ObjectIdentifier, SECP384R1_OID.as_bytes()).unwrap()),
+        parameters: Some(AnyRef::new(Tag::ObjectIdentifier, SECP384R1_OID.as_bytes()).unwrap()),
     };
 
     let sig_alg = AlgorithmIdentifier {
@@ -52,13 +52,13 @@ pub fn generate_ca_cert(
     // extended key usage
     let eku: alloc::vec::Vec<ObjectIdentifier> = vec![VTPMTD_CA_EXTENDED_KEY_USAGE];
     let eku = eku
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
 
     // basic constrains
     let basic_constrains: alloc::vec::Vec<bool> = vec![true];
     let basic_constrains = basic_constrains
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
 
     let x509_certificate = x509::CertificateBuilder::new(
@@ -95,19 +95,19 @@ pub fn generate_ca_cert(
     .build();
 
     x509_certificate
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))
 }
 
 fn gen_auth_key_identifier(ek_pub: &[u8]) -> Result<alloc::vec::Vec<u8>, ResolveError> {
     // authority key identifier
     let ek_pub_sha1 = digest::digest(&digest::SHA1_FOR_LEGACY_USE_ONLY, ek_pub);
-    let pub_sha1 = OctetString::new(ek_pub_sha1.as_ref())
+    let pub_sha1 = OctetStringRef::new(ek_pub_sha1.as_ref())
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
     let auth_key_identifier: AuthorityKeyIdentifier = AuthorityKeyIdentifier(pub_sha1);
     let auth_key_identifier = vec![auth_key_identifier];
     auth_key_identifier
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))
 }
 
@@ -117,9 +117,9 @@ fn gen_subject_alt_name() -> Result<alloc::vec::Vec<u8>, ResolveError> {
     let mut tcg_tpm_manufaturer = SetOfVec::new();
     let mut manufacturer = alloc::vec::Vec::new();
     manufacturer.extend_from_slice(&tpm2_caps.manufacturer.to_be_bytes());
-    let _ = tcg_tpm_manufaturer.add(DistinguishedName {
+    let _ = tcg_tpm_manufaturer.insert(DistinguishedName {
         attribute_type: TCG_TPM_MANUFACTURER,
-        value: Utf8String::new(manufacturer.as_slice()).unwrap().into(),
+        value: Utf8StringRef::new(manufacturer.as_slice()).unwrap().into(),
     });
 
     let mut tcg_tpm_model = SetOfVec::new();
@@ -128,25 +128,25 @@ fn gen_subject_alt_name() -> Result<alloc::vec::Vec<u8>, ResolveError> {
     model.extend_from_slice(&tpm2_caps.vendor_2.to_be_bytes());
     model.extend_from_slice(&tpm2_caps.vendor_3.to_be_bytes());
     model.extend_from_slice(&tpm2_caps.vendor_4.to_be_bytes());
-    let _ = tcg_tpm_model.add(DistinguishedName {
+    let _ = tcg_tpm_model.insert(DistinguishedName {
         attribute_type: TCG_TPM_MODEL,
-        value: Utf8String::new(model.as_slice()).unwrap().into(),
+        value: Utf8StringRef::new(model.as_slice()).unwrap().into(),
     });
 
     let mut tcg_tpm_version = SetOfVec::new();
     let mut version = alloc::vec::Vec::new();
     version.extend_from_slice(&tpm2_caps.version_1.to_be_bytes());
     version.extend_from_slice(&tpm2_caps.version_2.to_be_bytes());
-    let _ = tcg_tpm_version.add(DistinguishedName {
+    let _ = tcg_tpm_version.insert(DistinguishedName {
         attribute_type: TCG_TPM_VERSION,
-        value: Utf8String::new(version.as_slice()).unwrap().into(),
+        value: Utf8StringRef::new(version.as_slice()).unwrap().into(),
     });
 
     let sub_alt_name = vec![tcg_tpm_manufaturer, tcg_tpm_model, tcg_tpm_version];
     let sub_alt_name: SubjectAltName = SubjectAltName(sub_alt_name);
     let sub_alt_name = vec![sub_alt_name];
     sub_alt_name
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))
 }
 
@@ -164,7 +164,7 @@ pub fn generate_ek_cert(
     // Generate x.509 certificate
     let algorithm = AlgorithmIdentifier {
         algorithm: ID_EC_PUBKEY_OID,
-        parameters: Some(Any::new(Tag::ObjectIdentifier, SECP384R1_OID.as_bytes()).unwrap()),
+        parameters: Some(AnyRef::new(Tag::ObjectIdentifier, SECP384R1_OID.as_bytes()).unwrap()),
     };
 
     let sig_alg = AlgorithmIdentifier {
@@ -175,13 +175,13 @@ pub fn generate_ek_cert(
     // basic constrains
     let basic_constrains: alloc::vec::Vec<bool> = vec![false];
     let basic_constrains = basic_constrains
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
 
     // extended key usage
     let eku: alloc::vec::Vec<ObjectIdentifier> = vec![TCG_EK_CERTIFICATE];
     let eku = eku
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
 
     // authority key identifier
@@ -189,10 +189,10 @@ pub fn generate_ek_cert(
 
     // follow ek-credential spec Section 3.2.
     // keyAgreement (4) refers to https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.3
-    let ku = BitString::new(0, &[0x08])
+    let ku = BitStringRef::new(0, &[0x08])
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
     let ku = ku
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))?;
 
     // subject alt name
@@ -228,6 +228,6 @@ pub fn generate_ek_cert(
         .build();
 
     x509_certificate
-        .to_vec()
+        .to_der()
         .map_err(|e| ResolveError::GenerateCertificate(X509Error::DerEncoding(e)))
 }

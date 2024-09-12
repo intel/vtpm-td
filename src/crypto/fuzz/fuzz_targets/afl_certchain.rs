@@ -1,6 +1,6 @@
 use crypto::resolve::{get_cert_from_certchain, parse_extensions};
 use crypto::x509::Certificate;
-use der::Decodable;
+use der::Decode;
 
 
 fn main() {

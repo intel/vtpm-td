@@ -3,7 +3,7 @@ use libfuzzer_sys::fuzz_target;
 
 use crypto::resolve::{get_cert_from_certchain, parse_extensions};
 use crypto::x509::Certificate;
-use der::Decodable;
+use der::Decode;
 
 fuzz_target!(|data: &[u8]| {
     // fuzzed code goes here
