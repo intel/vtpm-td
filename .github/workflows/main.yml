@@ -19,7 +19,7 @@ env:
 jobs:
     system_compile:
       name: Compile the vtpmtd.bin file
-      runs-on: ubuntu-20.04
+      runs-on: ubuntu-22.04
       timeout-minutes: 30
   
       steps:
@@ -42,6 +42,9 @@ jobs:
           with:
             version: "10.0"
             directory: ${{ runner.temp }}/llvm
+        
+        - name: Install libtinfo5
+          run: sudo apt-get update -y && sudo apt-get install libtinfo5 -y
 
         - name: install NASM
           uses: ilammy/setup-nasm@13cbeb366c45c4379d3478cdcbadd8295feb5028 # v1.5.1
