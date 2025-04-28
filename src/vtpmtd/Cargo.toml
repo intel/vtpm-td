@@ -16,7 +16,6 @@ x86_64 = "0.14.9"
 zerocopy = { version = "0.7.31", features = ["derive"] }
 anyhow = { version = "1.0.68", default-features = false }
 sha2 = { version = "0.10.6", default-features = false, features = ["force-soft"]}
-paste = "1.0"
 bytes = { version="1", default-features=false }
 der = {version = "0.7.9", features = ["oid", "alloc", "derive"]}
 
