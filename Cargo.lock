@@ -447,12 +447,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
-name = "paste"
-version = "1.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
 name = "pin-project-lite"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -640,7 +634,6 @@ dependencies = [
  "global",
  "log",
  "maybe-async",
- "paste",
  "protocol",
  "ring",
  "spdmlib",
@@ -857,7 +850,6 @@ version = "0.1.0"
 dependencies = [
  "global",
  "log",
- "paste",
  "protocol",
  "td-exception",
  "td-payload",
@@ -969,7 +961,6 @@ dependencies = [
  "lazy_static",
  "linked_list_allocator",
  "log",
- "paste",
  "protocol",
  "ring",
  "scroll",
