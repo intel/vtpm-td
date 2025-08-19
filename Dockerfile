@@ -1,4 +1,4 @@
-FROM ubuntu:24.04@sha256:6015f66923d7afbc53558d7ccffd325d43b4e249f41a6e93eef074c9505d2233
+FROM ubuntu:24.04@sha256:7c06e91f61fa88c08cc74f7e1b7c69ae24910d745357e0dfe1d2c0322aaf20f9
 
 # Adding rust binaries to PATH.
 ENV PATH="$PATH:/root/.cargo/bin"
